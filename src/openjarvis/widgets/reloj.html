@@ -130,7 +130,7 @@ window.kasiShowAsk = () => {
 };
 window.kasiHideAsk = () => { askEl.classList.add("hidden"); qEl.blur(); };
 window.kasiToggleAsk = () => (askEl.classList.contains("hidden") ? window.kasiShowAsk() : window.kasiHideAsk());
-document.getElementById("hud").addEventListener("dblclick", () => window.kasiToggleAsk());
+// El doble clic lo detecta la ventana (Python) y llama a kasiToggleAsk().
 qEl.addEventListener("input", () => scheduleHide(20000));
 qEl.addEventListener("keydown", (ev) => { if (ev.key === "Escape") window.kasiHideAsk(); });
 askEl.addEventListener("submit", () => window.kasiHideAsk());
