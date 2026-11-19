@@ -464,6 +464,11 @@ def serve(
                 # assistant while the same agent via the CLI kept its persona.
                 # Guarded so agents with specialized prompt machinery must opt
                 # in by explicitly naming and forwarding the kwarg.
+                if config.agent.smart_tools and "smart_tools" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    agent_kwargs["smart_tools"] = True
+
                 import inspect as _inspect
 
                 if (

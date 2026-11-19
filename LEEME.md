@@ -69,6 +69,16 @@ setx JARVIS_NUM_CTX 8192       # contexto más corto: más capas caben en la GPU
 
 Luego reinicia Ollama. El reloj además enciende el servidor al iniciar Windows.
 
+Otros trucos que ya trae el preset `kasandra-inteligente`:
+
+- `[agent] smart_tools = true`: en una charla normal Kasandra contesta en una sola
+  llamada, sin cargar las herramientas. Solo las usa cuando pides buscar, calcular,
+  leer un archivo o recordar algo. Pon `false` si quieres que siempre las tenga.
+- El reloj solo le manda los últimos 6 mensajes de la conversación.
+- Cierra programas que usan la tarjeta de video (AutoCAD, Photoshop, LM Studio)
+  mientras hablas con ella: así el modelo cabe más en la GPU.
+- `qwen3.5:2b` responde 2-3 veces más rápido, pero es menos lista.
+
 ## Personalizar
 
 Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\config.toml`):

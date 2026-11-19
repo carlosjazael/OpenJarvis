@@ -1040,3 +1040,38 @@ class TestOrchestratorLoopGuardPerRun:
             result = agent.run("What is 2+2?")
             assert result.tool_results[0].success is True
             assert result.tool_results[0].content == "4"
+
+
+# ---------------------------------------------------------------------------
+# smart_tools: plain chat skips tool schemas
+# ---------------------------------------------------------------------------
+
+
+def test_needs_tools_heuristic():
+    from openjarvis.agents.orchestrator import needs_tools
+
+    assert needs_tools("Busca las noticias de México")
+    assert needs_tools("¿Cuánto es 17% de 2350?")
+    assert needs_tools("Recuerda que prefiero respuestas cortas")
+    assert needs_tools("Lee el archivo informe.pdf")
+    assert not needs_tools("Hola Kasi, ¿cómo estás?")
+    assert not needs_tools("Dame una idea rápida para organizar mi mañana")
+    assert not needs_tools("Cuéntame un chiste")
+
+
+def test_smart_tools_omits_schemas_for_plain_chat():
+    engine = _make_engine_no_tools("Hola")
+    agent = OrchestratorAgent(
+        engine, "m", tools=[_CalculatorStub()], smart_tools=True
+    )
+    agent.run("Hola Kasi, ¿cómo estás?")
+    assert "tools" not in engine.generate.call_args.kwargs
+
+
+def test_smart_tools_keeps_schemas_when_needed():
+    engine = _make_engine_no_tools("399.5")
+    agent = OrchestratorAgent(
+        engine, "m", tools=[_CalculatorStub()], smart_tools=True
+    )
+    agent.run("¿Cuánto es 17% de 2350?")
+    assert "tools" in engine.generate.call_args.kwargs

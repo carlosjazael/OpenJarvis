@@ -40,7 +40,7 @@ from openjarvis.speech.visualizer import N_BANDS, visualizer_port
 
 SIZE = 480
 PANEL = 96  # must match PANEL in reloj.html
-MAX_HISTORY = 12
+MAX_HISTORY = 6
 SEND_PREFIX = "KASI_SEND:"
 POLL_MS = 15
 HTML_PATH = Path(__file__).with_name("reloj.html")

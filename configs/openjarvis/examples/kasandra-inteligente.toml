@@ -22,6 +22,7 @@ temperature = 0.6
 default_agent = "orchestrator"      # elige herramientas por su cuenta
 max_turns = 8
 context_from_memory = true
+smart_tools = true                  # charla normal sin herramientas = respuesta en una sola llamada
 default_system_prompt = """
 Eres Kasandra (de cariño, Kasi), la asistente personal de IA del usuario. Funcionas
 en su computadora. Tu voz es femenina: habla de ti misma en femenino y responde

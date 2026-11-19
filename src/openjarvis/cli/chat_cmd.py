@@ -303,6 +303,11 @@ def chat(
                     )
                 )
 
+                if config.agent.smart_tools and "smart_tools" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    kwargs["smart_tools"] = True
+
                 import inspect as _inspect
 
                 if (
