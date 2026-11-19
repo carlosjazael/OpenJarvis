@@ -527,8 +527,9 @@ class OrchestratorAgent(ToolUsingAgent):
                     role=Role.SYSTEM,
                     content=(
                         f"Resultado exacto de la calculadora: {math_note}. "
-                        "Usa exactamente este resultado en tu respuesta y no le agregues "
-                        "unidades (pesos, metros...) que el usuario no haya dicho."
+                        "Usa exactamente este resultado en tu respuesta y no "
+                        "le agregues unidades (pesos, metros...) que el "
+                        "usuario no haya dicho."
                     ),
                 )
             )
