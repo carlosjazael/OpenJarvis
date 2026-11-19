@@ -556,32 +556,46 @@ def main(argv: Optional[list[str]] = None) -> int:
     menu.addAction("Cerrar reloj", app.quit)
     view.customContextMenuRequested.connect(lambda p: menu.popup(view.mapToGlobal(p)))
 
-    last_press: list = [0.0, QPoint()]
+    # Drag only starts once the mouse actually moves; a plain press/click
+    # stays a click, so Qt can report the double click itself. (Starting the
+    # system move on press swallowed the second click on Windows.)
+    drag = {"pos": None, "toggled": 0.0}
+
+    def _in_sphere(event: Any, obj: Any) -> bool:
+        return (
+            isinstance(obj, QObject)
+            and (obj is view or view.isAncestorOf(obj))
+            and view.mapFromGlobal(event.globalPosition().toPoint()).y() < SIZE
+        )
 
     class Dragger(QObject):
         def eventFilter(self, obj: Any, event: Any) -> bool:  # noqa: N802
-            if (
-                event.type() == QEvent.MouseButtonPress
-                and event.button() == Qt.LeftButton
-                and isinstance(obj, QObject)
-                and (obj is view or view.isAncestorOf(obj))
-                and view.mapFromGlobal(event.globalPosition().toPoint()).y() < SIZE
-            ):
-                # A press starts a window drag, which swallows the page's
-                # dblclick, so detect the double click here: it toggles the
-                # (normally hidden) text box.
-                now = time.monotonic()
-                gp = event.globalPosition().toPoint()
-                lt, lp = last_press
-                if now - lt < 0.4 and (gp - lp).manhattanLength() < 8:
-                    last_press[0] = 0.0
-                    bridge.js.emit("window.kasiToggleAsk()")
+            kind = event.type()
+            if kind == QEvent.MouseButtonDblClick and event.button() == Qt.LeftButton:
+                if _in_sphere(event, obj):
+                    now = time.monotonic()
+                    # The same double click can reach several widgets.
+                    if now - drag["toggled"] > 0.3:
+                        drag["toggled"] = now
+                        bridge.js.emit("window.kasiToggleAsk()")
+                    drag["pos"] = None
                     return True
-                last_press[0], last_press[1] = now, gp
-                handle = view.windowHandle()
-                if handle is not None and handle.startSystemMove():
-                    return True
-            if event.type() == QEvent.Move and obj is view:
+            elif kind == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                if _in_sphere(event, obj):
+                    drag["pos"] = event.globalPosition().toPoint()
+            elif kind == QEvent.MouseMove and drag["pos"] is not None:
+                if not (event.buttons() & Qt.LeftButton):
+                    drag["pos"] = None
+                elif (
+                    event.globalPosition().toPoint() - drag["pos"]
+                ).manhattanLength() > 6:
+                    drag["pos"] = None
+                    handle = view.windowHandle()
+                    if handle is not None and handle.startSystemMove():
+                        return True
+            elif kind == QEvent.MouseButtonRelease:
+                drag["pos"] = None
+            if kind == QEvent.Move and obj is view:
                 _save_position(view.x(), view.y())
             return False
 
