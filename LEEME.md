@@ -53,7 +53,21 @@ uv run kasandra-reloj --demo   # simula una voz para verlo en acción
 - Clic derecho: "Siempre visible" o "Cerrar reloj".
 - Para que aparezca al encender Windows, pon un acceso directo a
   `.venv\Scripts\kasandra-reloj.exe` en la carpeta `shell:startup`.
+- **Escribirle sin micrófono:** usa la caja de texto bajo el núcleo (o empieza a
+  teclear con el reloj seleccionado). Ella contesta con subtítulos y en voz alta,
+  con las mismas herramientas y memoria del chat de voz.
 - Para no enviar las ondas: variable de entorno `OPENJARVIS_VISUALIZER=0`.
+
+## Velocidad (tarjetas de video chicas)
+
+Con 4 GB de VRAM el modelo corre casi todo en el procesador. Ayuda mucho:
+
+```powershell
+setx OLLAMA_KEEP_ALIVE -1      # el modelo se queda cargado, sin recargas
+setx JARVIS_NUM_CTX 8192       # contexto más corto: más capas caben en la GPU
+```
+
+Luego reinicia Ollama. El reloj además enciende el servidor al iniciar Windows.
 
 ## Personalizar
 
