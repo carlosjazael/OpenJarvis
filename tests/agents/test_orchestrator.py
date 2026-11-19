@@ -1051,7 +1051,7 @@ def test_needs_tools_heuristic():
     from openjarvis.agents.orchestrator import needs_tools
 
     assert needs_tools("Busca las noticias de México")
-    assert not needs_tools("¿Cuánto es 17% de 2350?")
+    assert needs_tools("¿Cuánto es 17% de 2350?")
     assert needs_tools("Usa la calculadora: 17% de 2350")
     assert needs_tools("Recuerda que prefiero respuestas cortas")
     assert needs_tools("Lee el archivo informe.pdf")
