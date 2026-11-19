@@ -348,6 +348,15 @@ class SentenceSpeaker:
         self._audio: "queue.Queue[Any]" = queue.Queue(maxsize=3)
         threading.Thread(target=self._synth_loop, daemon=True).start()
         threading.Thread(target=self._play_loop, daemon=True).start()
+        # Warm up the voice (imports + first connection take ~5 s) so the
+        # first real sentence starts right away.
+        threading.Thread(target=self._warm_up, daemon=True).start()
+
+    def _warm_up(self) -> None:
+        try:
+            synthesize_speech(self._config, "Hola.")
+        except Exception:
+            pass
 
     def say(self, sentence: str) -> None:
         self._texts.put(sentence)
