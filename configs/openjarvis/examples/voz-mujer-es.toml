@@ -2,8 +2,8 @@
 # Copia este archivo a ~/.openjarvis/config.toml, o ejecuta:
 #   jarvis init --preset voz-mujer-es --force
 #
-# Todo corre en tu computadora: Ollama (modelo de lenguaje), Whisper
-# (reconocimiento de voz) y Kokoro (síntesis de voz). No necesitas API keys.
+# Ollama (modelo de lenguaje) y Whisper (reconocimiento de voz) corren en tu
+# computadora. La voz usa edge-tts (gratis, en línea). No necesitas API keys.
 #
 # Uso:
 #   jarvis chat --voice        # hablas por el micrófono y ella te contesta en voz alta
@@ -33,8 +33,11 @@ backend = "auto"            # Reconocimiento de voz (faster-whisper local)
 model = "small"             # "base" es más rápido; "small" entiende mejor el español
 language = "es"
 compute_type = "int8"       # Funciona bien en CPU
-tts_backend = "kokoro"      # Voz local, gratis y sin internet
-voice_id = "ef_dora"        # Voz femenina en español
+tts_backend = "edge_tts"    # Voces neuronales de Microsoft: gratis, necesitan internet
+voice_id = "pt-BR-ThalitaMultilingualNeural"   # Thalita, la voz elegida para Kasandra
+# Otras: "es-MX-DaliaNeural" (México), "es-US-PalomaNeural", "es-CO-SalomeNeural",
+#        "en-US-AvaMultilingualNeural"
+# Sin internet: tts_backend = "kokoro" y voice_id = "ef_dora"
 voice_speed = 1.0           # 0.8 = más lento, 1.2 = más rápido
 
 # --- Alternativas en la nube (requieren API key) ---

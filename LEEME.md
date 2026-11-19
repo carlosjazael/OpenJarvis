@@ -3,7 +3,8 @@
 Esta es mi copia personal de [OpenJarvis](https://github.com/open-jarvis/OpenJarvis)
 (licencia Apache 2.0, ver `LICENSE`). Funciona igual que el original, con estos cambios:
 
-- **Voz femenina en español por defecto**: Kokoro `ef_dora` (local, gratis, sin internet).
+- **Voz de Thalita** (`pt-BR-ThalitaMultilingualNeural`), voz neuronal de Microsoft vía edge-tts: gratis y muy
+  natural, pero necesita internet. Sin internet usa Kokoro `ef_dora` (local).
   Si se usa un servicio en la nube, también cae en voces de mujer: OpenAI `nova`,
   ElevenLabs `Sarah`.
 - **Escucha en español**: el reconocimiento de voz usa `language = "es"`.
@@ -43,7 +44,8 @@ Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\confi
 | Quiero… | Cambia |
 |---|---|
 | Que hable más lento o más rápido | `[speech] voice_speed = 0.9` (o `1.1`) |
-| Otra voz de mujer (en inglés) | `voice_id = "af_heart"`, `"bf_emma"`… |
+| Otra voz de mujer | `voice_id = "es-MX-DaliaNeural"`, `"es-US-PalomaNeural"`, `"es-CO-SalomeNeural"` |
+| Voz sin internet | `tts_backend = "kokoro"` y `voice_id = "ef_dora"` |
 | Voz más natural (de pago) | `tts_backend = "elevenlabs"` y `voice_id = "EXAVITQu4vr4xnSDxMaL"` |
 | Cambiarle el nombre o la personalidad | `[agent] system_prompt = """Te llamas …"""` |
 | Un modelo más listo | `[intelligence] default_model = "qwen3.5:9b"` |

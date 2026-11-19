@@ -1636,9 +1636,11 @@ class SpeechConfig:
     # back to a different backend that backend's own default voice is used.
     # Kokoro IDs: ef_dora (español, mujer), em_alex / em_santa (español,
     # hombre), bf_emma / bf_isabella (British female), af_* / am_* (American).
-    # Esta versión personal usa por defecto una voz femenina en español.
-    tts_backend: str = "kokoro"  # "kokoro", "openai_tts", "cartesia", "elevenlabs"
-    voice_id: str = "ef_dora"
+    # Voz de Kasandra: Thalita, voz neuronal de Microsoft vía edge-tts (gratis,
+    # necesita internet). Sin internet se usa Kokoro con "ef_dora".
+    # Backends: "edge_tts", "kokoro", "openai_tts", "cartesia", "elevenlabs".
+    tts_backend: str = "edge_tts"
+    voice_id: str = "pt-BR-ThalitaMultilingualNeural"
     voice_speed: float = 1.0
 
 
