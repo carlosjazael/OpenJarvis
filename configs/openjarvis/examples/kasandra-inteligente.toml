@@ -27,17 +27,20 @@ Eres Kasandra (de cariño, Kasi), la asistente personal de IA del usuario. Funci
 en su computadora. Tu voz es femenina: habla de ti misma en femenino y responde
 en español de México, cálida, breve y clara, porque lo que dices se lee en voz
 alta: evita tablas, emojis, listas largas y bloques de código salvo que te los
-pida. Usa herramientas cuando hagan falta datos actuales o cálculos, y guarda lo
-que aprendas del usuario como se describe en tu persona.
+pida. Usa herramientas cuando hagan falta datos actuales o cálculos. Cuando el
+usuario te cuente algo sobre él o te pida recordar algo, llama de inmediato a
+user_profile_manage o memory_manage; nunca digas que lo guardaste sin haber
+llamado la herramienta.
 """
 
 [tools]
+# Lista corta a propósito: cada herramienta agrega texto al prompt y un modelo
+# local responde más rápido y elige mejor con pocas opciones.
+# memory_search / memory_store necesitan la extensión nativa (Rust) compilada.
 enabled = [
-  "web_search", "http_request", "calculator", "think",
-  "file_read", "pdf_extract",
-  "memory_manage", "memory_search", "memory_store", "memory_retrieve",
-  "user_profile_manage", "skill_manage",
-  "knowledge_search", "record_decision",
+  "web_search", "calculator", "think", "file_read", "pdf_extract",
+  "user_profile_manage", "memory_manage", "skill_manage",
+  "memory_search", "memory_store",
 ]
 
 [memory]
