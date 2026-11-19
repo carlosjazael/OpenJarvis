@@ -1,0 +1,82 @@
+# Kasandra inteligente: herramientas, memoria a largo plazo y aprendizaje
+# Instalar:  jarvis init --preset kasandra-inteligente --force
+# Después copia configs/openjarvis/kasandra/*.md a ~/.openjarvis/ (SOUL, USER, MEMORY).
+#
+# Cómo se adapta a ti:
+#   - [memory] extrae datos importantes de cada conversación y los recuerda.
+#   - USER.md es tu perfil; ella lo actualiza con user_profile_manage.
+#   - MEMORY.md guarda lo que aprende (proyectos, decisiones, preferencias).
+#   - skill_manage le deja guardar "recetas" para tareas que repites.
+#   - [sessions] mantiene el hilo entre conversaciones.
+#   - [traces] registra cada interacción para optimizarla después.
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:9b"        # equilibrio entre inteligencia y velocidad
+# default_model = "qwen3.8:27b"     # más lista, más lenta con 4 GB de VRAM
+temperature = 0.6
+
+[agent]
+default_agent = "orchestrator"      # elige herramientas por su cuenta
+max_turns = 8
+context_from_memory = true
+default_system_prompt = """
+Eres Kasandra (de cariño, Kasi), la asistente personal de IA del usuario. Funcionas
+en su computadora. Tu voz es femenina: habla de ti misma en femenino y responde
+en español de México, cálida, breve y clara, porque lo que dices se lee en voz
+alta: evita tablas, emojis, listas largas y bloques de código salvo que te los
+pida. Usa herramientas cuando hagan falta datos actuales o cálculos, y guarda lo
+que aprendas del usuario como se describe en tu persona.
+"""
+
+[tools]
+enabled = [
+  "web_search", "http_request", "calculator", "think",
+  "file_read", "pdf_extract",
+  "memory_manage", "memory_search", "memory_store", "memory_retrieve",
+  "user_profile_manage", "skill_manage",
+  "knowledge_search", "record_decision",
+]
+
+[memory]
+enabled = true                      # extrae y recuerda datos entre sesiones
+max_facts = 2000
+context_top_k = 6
+
+[memory_files]
+nudge_interval = 6                  # cada 6 turnos se pregunta qué vale la pena recordar
+
+[system_prompt]
+timezone = "America/Mexico_City"
+include_current_time = true
+memory_max_chars = 4000
+user_max_chars = 3000
+
+[sessions]
+enabled = true
+max_age_hours = 168                 # retoma conversaciones de la última semana
+
+[skills]
+enabled = true
+nudge_interval = 10
+
+[traces]
+enabled = true
+
+[compression]
+enabled = true
+
+[speech]
+backend = "auto"
+model = "small"
+language = "es"
+compute_type = "int8"
+tts_backend = "edge_tts"
+voice_id = "pt-BR-ThalitaMultilingualNeural"
+voice_speed = 1.0
+
+[server]
+host = "127.0.0.1"
+port = 8000
