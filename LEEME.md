@@ -58,6 +58,17 @@ uv run kasandra-reloj --demo   # simula una voz para verlo en acción
   con las mismas herramientas y memoria del chat de voz.
 - Para no enviar las ondas: variable de entorno `OPENJARVIS_VISUALIZER=0`.
 
+## Velocidad (tarjetas de video chicas)
+
+Con 4 GB de VRAM el modelo corre casi todo en el procesador. Ayuda mucho:
+
+```powershell
+setx OLLAMA_KEEP_ALIVE -1      # el modelo se queda cargado, sin recargas
+setx JARVIS_NUM_CTX 8192       # contexto más corto: más capas caben en la GPU
+```
+
+Luego reinicia Ollama. El reloj además enciende el servidor al iniciar Windows.
+
 ## Personalizar
 
 Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\config.toml`):

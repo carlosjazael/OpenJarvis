@@ -401,6 +401,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         timer.timeout.connect(poll)
         timer.start(POLL_MS)
 
+    # Warm the brain up right away so the first typed question doesn't wait for
+    # the server (and the model) to load.
+    if not demo:
+        threading.Thread(
+            target=client.ensure_server, args=(lambda _msg: None,), daemon=True
+        ).start()
+
     view.show()
     try:
         return app.exec()
