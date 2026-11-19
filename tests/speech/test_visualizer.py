@@ -98,7 +98,8 @@ def test_text_bridge_helpers():
     assert reloj.parse_send("KASI_SEND:{bad") is None
     history = [{"role": "user", "content": str(i)} for i in range(20)]
     payload = reloj.build_payload("qwen3.5:9b", history)
-    assert payload["model"] == "qwen3.5:9b" and len(payload["messages"]) == reloj.MAX_HISTORY
+    assert payload["model"] == "qwen3.5:9b"
+    assert len(payload["messages"]) == reloj.MAX_HISTORY
     ok = {"choices": [{"message": {"content": "Listo"}}]}
     assert reloj.extract_reply(ok) == "Listo"
     assert reloj.extract_reply({}) == ""
