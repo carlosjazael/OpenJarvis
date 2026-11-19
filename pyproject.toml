@@ -124,6 +124,7 @@ voice = [
     "sounddevice>=0.5",  # play_wav / record_until_silence in speech/voice_io.py
     "numpy>=1.24",
 ]
+reloj = ["PySide6>=6.6"]  # reloj holográfico de escritorio (kasandra-reloj)
 openhands = ["openhands-sdk>=1.0; python_version >= '3.12'"]
 # Apple Foundation Models (on-device AFM 3). Needs an Apple Silicon Mac on
 # macOS 26+ with Apple Intelligence enabled. The SDK compiles Swift bindings
@@ -221,6 +222,9 @@ Issues = "https://github.com/open-jarvis/OpenJarvis/issues"
 [project.scripts]
 jarvis = "openjarvis.cli:main"
 openjarvis-eval = "openjarvis.evals.cli:main"
+
+[project.gui-scripts]
+kasandra-reloj = "openjarvis.widgets.reloj:main"
 
 # Version is derived from git tags by hatch-vcs (see #526). For source/editable
 # checkouts this yields the true `git describe` version (e.g. 1.0.3.dev109+g<sha>)
