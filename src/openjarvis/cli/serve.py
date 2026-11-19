@@ -468,6 +468,10 @@ def serve(
                     __import__("inspect").signature(agent_cls.__init__).parameters
                 ):
                     agent_kwargs["smart_tools"] = True
+                if config.agent.mirror_tone and "mirror_tone" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    agent_kwargs["mirror_tone"] = True
 
                 import inspect as _inspect
 
