@@ -122,12 +122,25 @@ def build_payload(model: str, history: List[dict]) -> dict:
     return {"model": model, "messages": history[-MAX_HISTORY:], "stream": False}
 
 
+def trim_unfinished(text: str) -> str:
+    """Cut a reply that hit the length cap back to its last full sentence."""
+    text = text.rstrip()
+    if not text or text[-1] in ".!?…)\"»":
+        return text
+    cut = max(text.rfind(p) for p in (". ", "! ", "? ", "…", ".\n", "!\n", "?\n"))
+    return text[: cut + 1].rstrip() if cut > len(text) // 3 else text
+
+
 def extract_reply(response: dict) -> str:
     try:
         content = response["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
         return ""
-    return content if isinstance(content, str) else ""
+    if not isinstance(content, str):
+        return ""
+    # The agent endpoint always reports "stop", so trim any reply that
+    # ends mid-sentence (it hit the [intelligence] max_tokens cap).
+    return trim_unfinished(content)
 
 
 class KasandraClient:

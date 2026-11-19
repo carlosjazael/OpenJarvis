@@ -1051,7 +1051,8 @@ def test_needs_tools_heuristic():
     from openjarvis.agents.orchestrator import needs_tools
 
     assert needs_tools("Busca las noticias de México")
-    assert needs_tools("¿Cuánto es 17% de 2350?")
+    assert not needs_tools("¿Cuánto es 17% de 2350?")
+    assert needs_tools("Usa la calculadora: 17% de 2350")
     assert needs_tools("Recuerda que prefiero respuestas cortas")
     assert needs_tools("Lee el archivo informe.pdf")
     assert not needs_tools("Hola Kasi, ¿cómo estás?")
@@ -1069,9 +1070,9 @@ def test_smart_tools_omits_schemas_for_plain_chat():
 
 
 def test_smart_tools_keeps_schemas_when_needed():
-    engine = _make_engine_no_tools("399.5")
+    engine = _make_engine_no_tools("Listo")
     agent = OrchestratorAgent(
         engine, "m", tools=[_CalculatorStub()], smart_tools=True
     )
-    agent.run("¿Cuánto es 17% de 2350?")
+    agent.run("Busca las noticias de México")
     assert "tools" in engine.generate.call_args.kwargs

@@ -115,3 +115,16 @@ def test_html_has_text_box_hooks():
         assert hook in html
     assert reloj.SEND_PREFIX in html
     assert f"const PANEL = {reloj.PANEL};" in html
+
+
+def test_trim_unfinished_reply():
+    from openjarvis.widgets import reloj
+
+    cut = "Primero toma agua. Luego revisa tu agenda. Después haz la tarea más"
+    assert reloj.trim_unfinished(cut) == "Primero toma agua. Luego revisa tu agenda."
+    assert reloj.trim_unfinished("Hola, Carlos.") == "Hola, Carlos."
+    resp = {"choices": [{"message": {"content": cut}, "finish_reason": "length"}]}
+    assert reloj.extract_reply(resp).endswith("agenda.")
+    assert reloj.trim_unfinished("Visita la página del clima") == (
+        "Visita la página del clima"
+    )

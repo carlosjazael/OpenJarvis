@@ -28,19 +28,21 @@ from openjarvis.tools._stubs import BaseTool
 logger = logging.getLogger(__name__)
 
 
-# Words that suggest a message needs a tool (search, math, files, memory).
+# Words that suggest a message needs a tool (search, files, memory).
+# Simple arithmetic is left to the model itself: a calculator round-trip
+# costs two extra model calls, far slower than answering directly.
 # Used by ``smart_tools``: anything else is answered in a single fast call
 # without tool schemas in the prompt.
 _TOOL_HINTS = re.compile(
     r"(busc|investig|internet|web|google|noticia|clima|tiempo hace|temperatura|"
     r"precio|cu[aá]nto (cuesta|vale|est[aá])|d[oó]lar|cotiza|actual|[uú]ltim|"
-    r"reciente|esta semana|calcul|cu[aá]nto es|porcentaje|%|\d\s*[-+*/x×÷^]\s*\d|"
-    r"ra[ií]z|suma|resta|multiplic|divid|convierte|convertir|archivo|documento|pdf|"
+    r"reciente|esta semana|usa la calculadora|calculadora|"
+    r"convierte|convertir|archivo|documento|pdf|"
     r"lee |leer|abre |carpeta|ruta|recuerd|acu[eé]rdate|record|guarda|anota|apunta|"
     r"memoriza|aprend|olvida|borra|prefier|no me gusta|me gusta|ll[aá]mame|me llamo|"
     r"mi nombre|mi perfil|trabajo en|vivo en|mi cumplea|mi esposa|mi hij|"
     r"qu[eé] sabes de m[ií]|habilidad|skill|piensa bien|paso a paso|"
-    r"search|news|weather|price|calculate|remember|file|latest|today)",
+    r"search|news|weather|price|calculator|remember|file|latest|today)",
     re.IGNORECASE,
 )
 
