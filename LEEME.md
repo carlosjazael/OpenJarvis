@@ -4,7 +4,8 @@ Esta es mi copia personal de [OpenJarvis](https://github.com/open-jarvis/OpenJar
 (licencia Apache 2.0, ver `LICENSE`). Funciona igual que el original, con estos cambios:
 
 - **Voz de Thalita** (`pt-BR-ThalitaMultilingualNeural`), voz neuronal de Microsoft vía edge-tts: gratis y muy
-  natural, pero necesita internet. Sin internet usa Kokoro `ef_dora` (local).
+  natural, pero necesita internet. El preset `kasandra-inteligente` usa **Dalia**
+  (`es-MX-DaliaNeural`): mexicana y unas 3 veces más rápida, ideal para hablar frase por frase. Sin internet usa Kokoro `ef_dora` (local).
   Si se usa un servicio en la nube, también cae en voces de mujer: OpenAI `nova`,
   ElevenLabs `Sarah`.
 - **Escucha en español**: el reconocimiento de voz usa `language = "es"`.

@@ -83,7 +83,7 @@ model = "small"
 language = "es"
 compute_type = "int8"
 tts_backend = "edge_tts"
-voice_id = "pt-BR-ThalitaMultilingualNeural"
+voice_id = "es-MX-DaliaNeural"        # mexicana y rápida (1-3 s por frase); Thalita: "pt-BR-ThalitaMultilingualNeural"
 voice_speed = 1.0
 
 [server]
