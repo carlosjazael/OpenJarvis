@@ -87,7 +87,7 @@ def test_retries_then_falls_back_to_dalia(monkeypatch):
 
     calls: list[str] = []
 
-    async def flaky(text, voice, rate):
+    async def flaky(text, voice, rate, pitch="+0Hz"):
         calls.append(voice)
         if voice == "pt-BR-ThalitaMultilingualNeural":
             raise RuntimeError("No audio was received")
@@ -101,3 +101,17 @@ def test_retries_then_falls_back_to_dalia(monkeypatch):
         "es-MX-DaliaNeural",
     ]
     assert result.voice_id == "es-MX-DaliaNeural" and result.audio == b"audio"
+
+
+def test_pitch_suffix_in_voice_id(monkeypatch):
+    from openjarvis.speech import edge_tts_backend as mod
+
+    seen: dict = {}
+
+    async def fake(text, voice, rate, pitch="+0Hz"):
+        seen.update(voice=voice, pitch=pitch)
+        return b"audio"
+
+    monkeypatch.setattr(mod, "_synthesize_mp3", fake)
+    mod.EdgeTTSBackend().synthesize("Hola", voice_id="es-MX-DaliaNeural;pitch=-8Hz")
+    assert seen == {"voice": "es-MX-DaliaNeural", "pitch": "-8Hz"}

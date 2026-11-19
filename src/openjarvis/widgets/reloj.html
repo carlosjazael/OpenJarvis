@@ -113,8 +113,12 @@ document.getElementById("ask").addEventListener("submit", (ev) => {
   console.log("KASI_SEND:" + JSON.stringify(text));   // lo recibe la ventana de Python
 });
 window.kasiThinking = (on) => { thinking = !!on; };
+// Las respuestas solo se escuchan; el texto aparece únicamente con ?subs=1
+// (variable de entorno OPENJARVIS_RELOJ_SUBTITULOS=1).
+const SHOW_REPLY = new URLSearchParams(location.search).get("subs") === "1";
 window.kasiReply = (text) => {
   thinking = false;
+  if (!SHOW_REPLY) { clearTimeout(subTimer); subEl.classList.remove("on"); return; }
   const t = String(text || "");
   showSub(esc(t.length > 260 ? t.slice(0, 257) + "…" : t), Math.min(30000, 6000 + t.length * 60));
 };

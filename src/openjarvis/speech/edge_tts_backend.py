@@ -53,10 +53,27 @@ def _run(coro):
     return box["value"]
 
 
-async def _synthesize_mp3(text: str, voice: str, rate: str) -> bytes:
+def _split_voice(voice_id: str) -> tuple[str, str]:
+    """``"es-MX-DaliaNeural;pitch=-8Hz"`` → ``("es-MX-DaliaNeural", "-8Hz")``.
+
+    The optional ``;pitch=`` suffix lets a config pick a deeper or higher
+    tone without a new setting (edge-tts accepts ``+NHz`` / ``-NHz``).
+    """
+    name, _, extra = (voice_id or "").partition(";")
+    pitch = "+0Hz"
+    for part in extra.split(";"):
+        key, _, value = part.partition("=")
+        if key.strip().lower() == "pitch" and value.strip():
+            pitch = value.strip()
+    return name.strip(), pitch
+
+
+async def _synthesize_mp3(
+    text: str, voice: str, rate: str, pitch: str = "+0Hz"
+) -> bytes:
     import edge_tts
 
-    communicate = edge_tts.Communicate(text, voice, rate=rate)
+    communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk.get("type") == "audio":
@@ -87,7 +104,8 @@ class EdgeTTSBackend(TTSBackend):
         speed: float = 1.0,
         output_format: str = "mp3",
     ) -> TTSResult:
-        voice = voice_id or _DEFAULT_VOICE_ID
+        voice, pitch = _split_voice(voice_id or _DEFAULT_VOICE_ID)
+        voice = voice or _DEFAULT_VOICE_ID
         rate = _rate_for_speed(speed)
         mp3 = b""
         # The service sometimes answers "No audio was received" at random:
@@ -99,7 +117,7 @@ class EdgeTTSBackend(TTSBackend):
         last_error: Exception | None = None
         for attempt in attempts:
             try:
-                mp3 = _run(_synthesize_mp3(text, attempt, rate))
+                mp3 = _run(_synthesize_mp3(text, attempt, rate, pitch))
             except Exception as exc:  # edge_tts.exceptions.NoAudioReceived, etc.
                 last_error = exc
                 continue

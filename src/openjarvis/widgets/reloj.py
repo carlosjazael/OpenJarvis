@@ -532,8 +532,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     view.move(*pos)
 
     url = QUrl.fromLocalFile(str(HTML_PATH))
+    query = []
     if demo:
-        url.setQuery("demo=1")
+        query.append("demo=1")
+    if os.environ.get("OPENJARVIS_RELOJ_SUBTITULOS", "0") == "1":
+        query.append("subs=1")  # show Kasandra's replies as text too
+    if query:
+        url.setQuery("&".join(query))
     view.load(url)
 
     # ── menú y arrastre ──
