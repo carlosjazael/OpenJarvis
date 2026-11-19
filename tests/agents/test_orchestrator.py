@@ -1105,3 +1105,27 @@ def test_on_delta_not_used_when_tools_needed():
     agent.run("Busca las noticias", on_delta=seen.append)
     assert seen == []
     engine.generate.assert_called_once()
+
+
+def test_precompute_math():
+    from openjarvis.agents.orchestrator import precompute_math
+
+    assert precompute_math("No mames Kasi, ¿cuánto es 15% de 800?") == (
+        "15% de 800 = 120"
+    )
+    assert precompute_math("el 23 por ciento de 1,450") == "23% de 1,450 = 333.5"
+    assert precompute_math("cuánto es 1,200 + 350") == "1,200 + 350 = 1550"
+    assert precompute_math("Hola Kasi") is None
+    assert precompute_math("junta el 19/11 a las 5") is None
+
+
+def test_math_is_solved_in_code_in_one_call():
+    engine = _make_engine_no_tools("Son 120, güey.")
+    agent = OrchestratorAgent(
+        engine, "m", tools=[_CalculatorStub()], smart_tools=True
+    )
+    agent.run("No mames Kasi, ¿cuánto es 15% de 800?")
+    kwargs = engine.generate.call_args.kwargs
+    assert "tools" not in kwargs
+    sent = engine.generate.call_args.args[0]
+    assert any("15% de 800 = 120" in (m.content or "") for m in sent)

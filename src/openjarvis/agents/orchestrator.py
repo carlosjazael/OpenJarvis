@@ -47,6 +47,67 @@ _TOOL_HINTS = re.compile(
 )
 
 
+_NUM = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:[.,]\d+)?"
+_PERCENT_OF = re.compile(
+    rf"({_NUM})\s*(?:%|por\s*ciento)\s*(?:de|del|of)\s*\$?\s*({_NUM})",
+    re.IGNORECASE,
+)
+_EXPRESSION = re.compile(
+    rf"\(?\s*(?:{_NUM})(?:\s*[-+*/x×÷^]\s*\(?\s*(?:{_NUM})\s*\)?)+",
+    re.IGNORECASE,
+)
+_OTHER_TOOL_HINTS = re.compile(
+    r"(busc|investig|internet|web|google|noticia|clima|tiempo hace|temperatura|"
+    r"precio|d[oó]lar|cotiza|archivo|documento|pdf|lee |leer|carpeta|recuerd|"
+    r"acu[eé]rdate|guarda|anota|apunta|memoriza|aprend|olvida|borra|prefier|"
+    r"ll[aá]mame|me llamo|mi perfil|habilidad|skill|search|news|weather|file)",
+    re.IGNORECASE,
+)
+
+
+_ASKS_FOR_MATH = re.compile(
+    r"(cu[aá]nt|calcul|resultado|suma|resta|multiplic|divid|=|\?\s*$)",
+    re.IGNORECASE,
+)
+
+
+def _num(text: str) -> float:
+    # "1,450" is a thousands separator in Mexico; "2,5" a decimal comma.
+    if re.fullmatch(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?", text):
+        return float(text.replace(",", ""))
+    return float(text.replace(",", "."))
+
+
+def precompute_math(text: str) -> Optional[str]:
+    """Solve the arithmetic in *text* in code, so small models can't get it wrong.
+
+    Returns a short note such as ``"15% de 800 = 120"`` or None when the message
+    has no simple calculation (percent-of or a plain expression).
+    """
+    from openjarvis.tools.calculator import safe_eval
+
+    notes: list[str] = []
+    for m in _PERCENT_OF.finditer(text or ""):
+        value = _num(m.group(1)) * _num(m.group(2)) / 100
+        notes.append(f"{m.group(1)}% de {m.group(2)} = {value:g}")
+    if not notes and _ASKS_FOR_MATH.search(text or ""):
+        for m in _EXPRESSION.finditer(text or ""):
+            expr = m.group(0).strip()
+            clean = re.sub(
+                r"\d{1,3}(?:,\d{3})+", lambda n: n.group(0).replace(",", ""), expr
+            )
+            clean = (
+                clean.replace("×", "*").replace("x", "*").replace("X", "*")
+                .replace("÷", "/").replace("^", "**").replace(",", ".")
+            )
+            try:
+                value = float(safe_eval(clean))
+            except Exception:
+                continue
+            notes.append(f"{expr} = {value:g}")
+    return "; ".join(notes) or None
+
+
 def needs_tools(text: str) -> bool:
     """Heuristic: does *text* look like it needs a tool call?"""
     return bool(_TOOL_HINTS.search(text or ""))
@@ -458,6 +519,22 @@ class OrchestratorAgent(ToolUsingAgent):
 
         # Get OpenAI-format tool definitions
         openai_tools = self._executor.get_openai_tools() if self._tools else []
+        math_note = precompute_math(input) if self._smart_tools else None
+        if math_note:
+            # The answer is computed here, exactly; the model only phrases it.
+            messages.append(
+                Message(
+                    role=Role.SYSTEM,
+                    content=(
+                        f"Resultado exacto de la calculadora: {math_note}. "
+                        "Usa exactamente este resultado en tu respuesta y no "
+                        "le agregues unidades (pesos, metros...) que el "
+                        "usuario no haya dicho."
+                    ),
+                )
+            )
+            if not _OTHER_TOOL_HINTS.search(input):
+                openai_tools = []
         if openai_tools and self._smart_tools and not needs_tools(input):
             # Plain chat: skip the tool schemas (≈1k tokens) and the
             # tool round-trip so small local models answer in one call.
