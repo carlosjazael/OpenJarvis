@@ -1139,6 +1139,11 @@ class AgentConfig:
     system_prompt: str = ""  # inline system prompt (takes precedence if set)
     system_prompt_path: str = ""  # path to system prompt file (.txt, .md)
     context_from_memory: bool = True  # inject relevant memory context into prompts
+    # Only offer tools to the model when the message looks like it needs one
+    # (search, math, files, "remember this"...). Plain chat then skips the
+    # tool schemas and the extra tool round-trip, which is much faster on
+    # small local models.
+    smart_tools: bool = False
     default_system_prompt: str = (
         "Eres Kasandra (de cariño, Kasi), una asistente personal de IA que "
         "funciona localmente en la computadora del usuario. No eres un "

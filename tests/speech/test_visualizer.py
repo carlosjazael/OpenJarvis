@@ -98,7 +98,8 @@ def test_text_bridge_helpers():
     assert reloj.parse_send("KASI_SEND:{bad") is None
     history = [{"role": "user", "content": str(i)} for i in range(20)]
     payload = reloj.build_payload("qwen3.5:9b", history)
-    assert payload["model"] == "qwen3.5:9b" and len(payload["messages"]) == 12
+    assert payload["model"] == "qwen3.5:9b"
+    assert len(payload["messages"]) == reloj.MAX_HISTORY
     ok = {"choices": [{"message": {"content": "Listo"}}]}
     assert reloj.extract_reply(ok) == "Listo"
     assert reloj.extract_reply({}) == ""
@@ -115,3 +116,16 @@ def test_html_has_text_box_hooks():
         assert hook in html
     assert reloj.SEND_PREFIX in html
     assert f"const PANEL = {reloj.PANEL};" in html
+
+
+def test_trim_unfinished_reply():
+    from openjarvis.widgets import reloj
+
+    cut = "Primero toma agua. Luego revisa tu agenda. Después haz la tarea más"
+    assert reloj.trim_unfinished(cut) == "Primero toma agua. Luego revisa tu agenda."
+    assert reloj.trim_unfinished("Hola, Carlos.") == "Hola, Carlos."
+    resp = {"choices": [{"message": {"content": cut}, "finish_reason": "length"}]}
+    assert reloj.extract_reply(resp).endswith("agenda.")
+    assert reloj.trim_unfinished("Visita la página del clima") == (
+        "Visita la página del clima"
+    )

@@ -28,6 +28,30 @@ from openjarvis.tools._stubs import BaseTool
 logger = logging.getLogger(__name__)
 
 
+# Words that suggest a message needs a tool (search, math, files, memory).
+# Math keeps the calculator: small local models get percentages wrong.
+# Used by ``smart_tools``: anything else is answered in a single fast call
+# without tool schemas in the prompt.
+_TOOL_HINTS = re.compile(
+    r"(busc|investig|internet|web|google|noticia|clima|tiempo hace|temperatura|"
+    r"precio|cu[aá]nto (cuesta|vale|est[aá])|d[oó]lar|cotiza|actual|[uú]ltim|"
+    r"reciente|esta semana|calcul|cu[aá]nto (es|son|da)|porcentaje|%|"
+    r"\d\s*[-+*/x×÷^]\s*\d|ra[ií]z|multiplic|divid|"
+    r"convierte|convertir|archivo|documento|pdf|"
+    r"lee |leer|abre |carpeta|ruta|recuerd|acu[eé]rdate|record|guarda|anota|apunta|"
+    r"memoriza|aprend|olvida|borra|prefier|no me gusta|me gusta|ll[aá]mame|me llamo|"
+    r"mi nombre|mi perfil|trabajo en|vivo en|mi cumplea|mi esposa|mi hij|"
+    r"qu[eé] sabes de m[ií]|habilidad|skill|piensa bien|paso a paso|"
+    r"search|news|weather|price|calculat|remember|file|latest|today)",
+    re.IGNORECASE,
+)
+
+
+def needs_tools(text: str) -> bool:
+    """Heuristic: does *text* look like it needs a tool call?"""
+    return bool(_TOOL_HINTS.search(text or ""))
+
+
 def _protocol_marker_view(text: str) -> str:
     """Mask fenced THOUGHT/INPUT examples without changing character offsets."""
     field = ""
@@ -102,6 +126,7 @@ class OrchestratorAgent(ToolUsingAgent):
         agent_id: Optional[str] = None,
         rate_limiter: Optional[Any] = None,
         before_tool_call: Optional[Callable[[str, dict[str, Any]], bool]] = None,
+        smart_tools: bool = False,
     ) -> None:
         super().__init__(
             engine,
@@ -122,6 +147,7 @@ class OrchestratorAgent(ToolUsingAgent):
         self._system_prompt = system_prompt
         self._parallel_tools = parallel_tools
         self._before_tool_call = before_tool_call
+        self._smart_tools = smart_tools
 
     def run(
         self,
@@ -429,6 +455,10 @@ class OrchestratorAgent(ToolUsingAgent):
 
         # Get OpenAI-format tool definitions
         openai_tools = self._executor.get_openai_tools() if self._tools else []
+        if openai_tools and self._smart_tools and not needs_tools(input):
+            # Plain chat: skip the tool schemas (≈1k tokens) and the
+            # tool round-trip so small local models answer in one call.
+            openai_tools = []
 
         all_tool_results: list[ToolResult] = []
         turns = 0
