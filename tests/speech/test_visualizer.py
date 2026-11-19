@@ -129,3 +129,22 @@ def test_trim_unfinished_reply():
     assert reloj.trim_unfinished("Visita la página del clima") == (
         "Visita la página del clima"
     )
+
+
+def test_pop_sentences_and_sse():
+    from openjarvis.widgets import reloj
+
+    done, rest = reloj.pop_sentences("Hola, Carlos. ¿Cómo amaneciste hoy? Te propongo")
+    assert done == ["Hola, Carlos. ¿Cómo amaneciste hoy?"]
+    assert rest == " Te propongo"
+    done, rest = reloj.pop_sentences("Primero toma agua y estírate un poco. Luego")
+    assert done == ["Primero toma agua y estírate un poco."] and rest == " Luego"
+
+    lines = [
+        b'data: {"choices":[{"delta":{"role":"assistant"}}]}',
+        b"",
+        b'data: {"choices":[{"delta":{"content":"Hola"}}]}',
+        b'data: {"choices":[{"delta":{"content":" Carlos."}}]}',
+        b"data: [DONE]",
+    ]
+    assert "".join(reloj.iter_sse_text(lines)) == "Hola Carlos."

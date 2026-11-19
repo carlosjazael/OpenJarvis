@@ -118,8 +118,49 @@ def parse_send(console_message: str) -> Optional[str]:
     return text.strip()[:2000]
 
 
-def build_payload(model: str, history: List[dict]) -> dict:
-    return {"model": model, "messages": history[-MAX_HISTORY:], "stream": False}
+def build_payload(model: str, history: List[dict], stream: bool = False) -> dict:
+    return {"model": model, "messages": history[-MAX_HISTORY:], "stream": stream}
+
+
+_SENTENCE_END = re.compile(r"[.!?…:;](?=\s)|\n")
+
+
+def pop_sentences(buffer: str, min_chars: int = 18) -> Tuple[List[str], str]:
+    """Split complete sentences off the front of *buffer*.
+
+    Returns ``(sentences, rest)``. Very short fragments ("Sí.") are kept with
+    the next sentence so the voice doesn't stutter between tiny clips.
+    """
+    out: List[str] = []
+    start = 0
+    for m in _SENTENCE_END.finditer(buffer):
+        end = m.end()
+        if len(buffer[start:end].strip()) < min_chars:
+            continue
+        piece = buffer[start:end].strip()
+        if piece:
+            out.append(piece)
+        start = end
+    return out, buffer[start:]
+
+
+def iter_sse_text(lines: Any) -> Any:
+    """Yield the text pieces of an OpenAI-style SSE chat stream."""
+    for raw in lines:
+        line = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if data == "[DONE]":
+            return
+        try:
+            chunk = json.loads(data)
+            piece = chunk["choices"][0]["delta"].get("content") or ""
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+            continue
+        if piece:
+            yield piece
 
 
 def trim_unfinished(text: str) -> str:
@@ -192,6 +233,53 @@ class KasandraClient:
             time.sleep(1.0)
         return False
 
+    def ask_stream(
+        self, text: str, on_status: Any, on_sentence: Any, on_text: Any
+    ) -> str:
+        """Ask with streaming: speak each sentence as soon as it is written.
+
+        *on_sentence(sentence)* gets every complete sentence in order and
+        *on_text(full_so_far)* the growing reply for the subtitles. Falls back
+        to :meth:`ask` when the server cannot stream.
+        """
+        with self._lock:
+            if not self.ensure_server(on_status):
+                return "No pude iniciar mi núcleo. Revisa que Ollama esté abierto."
+            self._history.append({"role": "user", "content": text})
+            body = json.dumps(
+                build_payload(self._model, self._history, stream=True)
+            ).encode()
+            req = urllib.request.Request(
+                self._base + "/v1/chat/completions",
+                data=body,
+                headers=self._headers(),
+                method="POST",
+            )
+            full = ""
+            pending = ""
+            try:
+                with urllib.request.urlopen(req, timeout=600) as r:
+                    for piece in iter_sse_text(r):
+                        full += piece
+                        pending += piece
+                        sentences, pending = pop_sentences(pending)
+                        for sentence in sentences:
+                            on_sentence(sentence)
+                        on_text(full)
+            except (urllib.error.URLError, OSError, ValueError) as exc:
+                if not full:
+                    self._history.pop()
+                    return f"Tuve un problema al pensar la respuesta: {exc}"
+            # Speak what is left, minus a last sentence cut off by the cap.
+            final = trim_unfinished(full)
+            spoken_upto = len(full) - len(pending)
+            rest = final[spoken_upto:].strip()
+            if rest:
+                on_sentence(rest)
+            reply = final.strip() or "No tengo una respuesta para eso."
+            self._history.append({"role": "assistant", "content": reply})
+            return reply
+
     def ask(self, text: str, on_status: Any) -> str:
         with self._lock:
             if not self.ensure_server(on_status):
@@ -217,6 +305,72 @@ class KasandraClient:
     def stop(self) -> None:
         if self._server is not None and self._server.poll() is None:
             self._server.terminate()
+
+
+def synthesize_speech(config: Any, text: str) -> Optional[Tuple[bytes, int]]:
+    """Return ``(wav_bytes, sample_rate)`` for *text*, or None."""
+    from openjarvis.speech._tts_discovery import (
+        default_voice_for,
+        get_tts_backend,
+        voice_preferences,
+    )
+
+    spoken = clean_for_speech(text)
+    if not spoken:
+        return None
+    preferred, voice_id, speed = voice_preferences(config)
+    tried: set[str] = set()
+    while (backend := get_tts_backend(preferred, attempted=tried)) is not None:
+        voice = (
+            voice_id
+            if backend.backend_id == preferred
+            else default_voice_for(backend.backend_id)
+        )
+        kwargs: dict = {"output_format": "wav", "speed": speed}
+        if voice:
+            kwargs["voice_id"] = voice
+        try:
+            result = backend.synthesize(spoken, **kwargs)
+        except Exception:
+            continue
+        return result.audio, result.sample_rate
+    return None
+
+
+class SentenceSpeaker:
+    """Speaks sentences in order, synthesizing the next one while one plays."""
+
+    def __init__(self, config: Any) -> None:
+        import queue
+
+        self._config = config
+        self._texts: "queue.Queue[Optional[str]]" = queue.Queue()
+        self._audio: "queue.Queue[Any]" = queue.Queue(maxsize=3)
+        threading.Thread(target=self._synth_loop, daemon=True).start()
+        threading.Thread(target=self._play_loop, daemon=True).start()
+
+    def say(self, sentence: str) -> None:
+        self._texts.put(sentence)
+
+    def _synth_loop(self) -> None:
+        while True:
+            text = self._texts.get()
+            try:
+                audio = synthesize_speech(self._config, text) if text else None
+            except Exception:
+                audio = None
+            if audio is not None:
+                self._audio.put(audio)
+
+    def _play_loop(self) -> None:
+        from openjarvis.speech.voice_io import play_wav
+
+        while True:
+            wav, rate = self._audio.get()
+            try:
+                play_wav(wav, sample_rate=rate)
+            except Exception:
+                pass
 
 
 def speak_aloud(config: Any, text: str) -> None:
@@ -311,6 +465,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     config = load_config()
     client = KasandraClient(config)
+    speaker = SentenceSpeaker(config)
 
     app = QApplication(sys.argv[:1])
     view = QWebEngineView()
@@ -326,12 +481,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             bridge.js.emit(f"window.kasiStatus({json.dumps(msg)})")
 
         def work() -> None:
-            reply = client.ask(text, status)
+            last = [0.0]
+
+            def show(partial: str) -> None:
+                now = time.monotonic()
+                if now - last[0] > 0.25:  # keep the page light while streaming
+                    last[0] = now
+                    bridge.js.emit(f"window.kasiReply({json.dumps(partial)})")
+
+            reply = client.ask_stream(text, status, speaker.say, show)
             bridge.js.emit(f"window.kasiReply({json.dumps(reply)})")
-            try:
-                speak_aloud(config, reply)
-            except Exception:
-                pass
 
         threading.Thread(target=work, name="kasandra-ask", daemon=True).start()
 

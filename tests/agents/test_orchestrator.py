@@ -1076,3 +1076,32 @@ def test_smart_tools_keeps_schemas_when_needed():
     )
     agent.run("Busca las noticias de México")
     assert "tools" in engine.generate.call_args.kwargs
+
+
+def test_on_delta_streams_plain_chat():
+    engine = _make_engine_no_tools("unused")
+
+    async def _stream(messages, **kwargs):
+        for piece in ["Hola", ", ", "Carlos."]:
+            yield piece
+
+    engine.stream = _stream
+    seen: list[str] = []
+    agent = OrchestratorAgent(
+        engine, "m", tools=[_CalculatorStub()], smart_tools=True
+    )
+    result = agent.run("Hola Kasi", on_delta=seen.append)
+    assert seen == ["Hola", ", ", "Carlos."]
+    assert result.content == "Hola, Carlos."
+    engine.generate.assert_not_called()
+
+
+def test_on_delta_not_used_when_tools_needed():
+    engine = _make_engine_no_tools("Listo")
+    seen: list[str] = []
+    agent = OrchestratorAgent(
+        engine, "m", tools=[_CalculatorStub()], smart_tools=True
+    )
+    agent.run("Busca las noticias", on_delta=seen.append)
+    assert seen == []
+    engine.generate.assert_called_once()
