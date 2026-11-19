@@ -222,6 +222,9 @@ Issues = "https://github.com/open-jarvis/OpenJarvis/issues"
 jarvis = "openjarvis.cli:main"
 openjarvis-eval = "openjarvis.evals.cli:main"
 
+[project.gui-scripts]
+kasandra-reloj = "openjarvis.widgets.reloj:main"
+
 # Version is derived from git tags by hatch-vcs (see #526). For source/editable
 # checkouts this yields the true `git describe` version (e.g. 1.0.3.dev109+g<sha>)
 # rather than a stale static string. CI release builds override this with

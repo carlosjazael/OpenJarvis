@@ -106,12 +106,16 @@ def play_audio_file(path: str | Path) -> None:
             "Install with: pip install 'openjarvis[speech]'"
         ) from None
 
+    from openjarvis.speech.visualizer import start_broadcast, stop_broadcast
+
     data, sample_rate = sf.read(str(path), dtype="float32")
+    waves = start_broadcast(data, sample_rate)
     try:
         sd.play(data, sample_rate)
         sd.wait()
     finally:
         sd.stop()
+        stop_broadcast(waves)
 
 
 def play_wav(audio: bytes, sample_rate: int = 24000) -> None:
@@ -143,8 +147,15 @@ def play_wav(audio: bytes, sample_rate: int = 24000) -> None:
         )
         sr = sample_rate
 
-    sd.play(data, sr)
-    sd.wait()
+    from openjarvis.speech.visualizer import start_broadcast, stop_broadcast
+
+    # Feeds the desktop clock widget (openjarvis.widgets.reloj), if it runs.
+    waves = start_broadcast(data, sr)
+    try:
+        sd.play(data, sr)
+        sd.wait()
+    finally:
+        stop_broadcast(waves)
 
 
 __all__ = ["play_audio_file", "play_wav", "record_until_silence"]

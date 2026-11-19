@@ -37,6 +37,21 @@ uv run jarvis chat            # chat escrito
 uv run jarvis gui             # interfaz gráfica en el navegador (requiere Node.js 22+)
 ```
 
+## Reloj con ondas de voz
+
+Un reloj redondo y flotante para el escritorio, con un anillo de ondas que se
+mueve con la voz de Kasandra cada vez que habla:
+
+```bash
+uv run kasandra-reloj        # en Windows abre sin ventana de consola
+```
+
+- Arrástralo con el botón izquierdo; recuerda dónde lo dejaste.
+- Clic derecho: "Siempre visible" o "Cerrar reloj".
+- Para que aparezca al encender Windows, pon un acceso directo a
+  `.venv\Scripts\kasandra-reloj.exe` en la carpeta `shell:startup`.
+- Para desactivar el envío de ondas: variable de entorno `OPENJARVIS_VISUALIZER=0`.
+
 ## Personalizar
 
 Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\config.toml`):
