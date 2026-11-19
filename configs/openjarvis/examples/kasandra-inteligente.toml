@@ -14,7 +14,7 @@
 default = "ollama"
 
 [intelligence]
-default_model = "qwen3.5:9b"        # equilibrio entre inteligencia y velocidad
+default_model = "qwen3.5:4b"        # rápida (~5-10 s); cambia a qwen3.5:9b si quieres más inteligencia
 # default_model = "qwen3.8:27b"     # más lista, más lenta con 4 GB de VRAM
 temperature = 0.6
 
