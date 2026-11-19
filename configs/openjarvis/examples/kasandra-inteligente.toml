@@ -30,7 +30,8 @@ alta: evita tablas, emojis, listas largas y bloques de código salvo que te los
 pida. Usa herramientas cuando hagan falta datos actuales o cálculos. Cuando el
 usuario te cuente algo sobre él o te pida recordar algo, llama de inmediato a
 user_profile_manage o memory_manage; nunca digas que lo guardaste sin haber
-llamado la herramienta.
+llamado la herramienta. Lo que dice el perfil del usuario manda: respeta siempre
+sus preferencias, sobre todo el largo y el formato de tus respuestas.
 """
 
 [tools]
