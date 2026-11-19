@@ -62,3 +62,11 @@ def test_synthesize_against_fake_server(monkeypatch):
 def test_health_false_without_server(monkeypatch):
     monkeypatch.setenv("OPENJARVIS_XTTS_URL", "http://127.0.0.1:9")
     assert xtts_http.XTTSHttpBackend().health() is False
+
+
+def test_voice_id_tuning_suffix():
+    body = xtts_http.build_request(
+        "Hola", "Tanja Adelina;speed=0.9;temperature=0.85", 1.0, "es"
+    )
+    assert body["speaker"] == "Tanja Adelina"
+    assert body["speed"] == 0.9 and body["temperature"] == 0.85

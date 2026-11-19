@@ -31,8 +31,24 @@ def _base_url() -> str:
 
 
 def build_request(text: str, voice_id: str, speed: float, language: str) -> dict:
+    """Build the server request; ``voice_id`` may carry tuning after ``;``.
+
+    ``"Tanja Adelina;speed=0.9;temperature=0.85"`` → slower, warmer delivery
+    (temperature = more intonation variety; XTTS default 0.75).
+    """
+    voice, _, extra = (voice_id or _DEFAULT_VOICE_ID).partition(";")
+    voice = voice.strip() or _DEFAULT_VOICE_ID
     body: dict = {"text": text, "language": language, "speed": float(speed)}
-    voice = voice_id or _DEFAULT_VOICE_ID
+    for part in extra.split(";"):
+        key, _, value = part.partition("=")
+        key = key.strip().lower()
+        try:
+            if key == "speed":
+                body["speed"] = float(speed) * float(value)
+            elif key == "temperature":
+                body["temperature"] = float(value)
+        except ValueError:
+            continue
     if voice.lower().endswith(".wav"):
         body["speaker_wav"] = voice
     else:

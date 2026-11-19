@@ -10,7 +10,8 @@ use only (set COQUI_TOS_AGREED=1 once you have accepted it).
 Endpoints:
     GET  /health            -> 200 when the model is loaded
     GET  /voices            -> JSON list of built-in speakers
-    POST /tts  {"text", "language"="es", "speaker" | "speaker_wav", "speed"=1.0}
+    POST /tts  {"text", "language"="es", "speaker" | "speaker_wav", "speed"=1.0,
+               "temperature"=0.75}
                             -> audio/wav
 """
 
@@ -44,6 +45,8 @@ def _synthesize(body: dict) -> bytes:
         "language": body.get("language", "es"),
         "speed": float(body.get("speed", 1.0)),
     }
+    if body.get("temperature") is not None:
+        kwargs["temperature"] = float(body["temperature"])
     if body.get("speaker_wav"):
         kwargs["speaker_wav"] = body["speaker_wav"]
     else:
