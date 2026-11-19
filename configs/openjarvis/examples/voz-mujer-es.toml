@@ -1,0 +1,48 @@
+# Kasandra (Kasi): asistente personal con voz de mujer, en español
+# Copia este archivo a ~/.openjarvis/config.toml, o ejecuta:
+#   jarvis init --preset voz-mujer-es --force
+#
+# Todo corre en tu computadora: Ollama (modelo de lenguaje), Whisper
+# (reconocimiento de voz) y Kokoro (síntesis de voz). No necesitas API keys.
+#
+# Uso:
+#   jarvis chat --voice        # hablas por el micrófono y ella te contesta en voz alta
+#   jarvis chat                # chat escrito, sin voz
+#   jarvis gui                 # interfaz gráfica en el navegador
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:4b"       # Rápido; entiende y escribe bien en español
+# default_model = "qwen3.5:9b"     # Mejor calidad si tu equipo tiene 16 GB+ de RAM
+
+[agent]
+default_agent = "simple"
+system_prompt = """
+Te llamas Kasandra y de cariño te digo Kasi; responde a los dos nombres.
+Eres mi asistente personal. Tu voz es femenina: habla de ti misma en femenino
+(por ejemplo "estoy lista", "encantada de ayudarte"). Responde siempre en
+español de México, de forma cálida, breve y clara, porque tus respuestas se
+leen en voz alta: evita listas largas, tablas, emojis y bloques de código
+salvo que te los pida. Si no sabes algo, dilo con honestidad.
+"""
+
+[speech]
+backend = "auto"            # Reconocimiento de voz (faster-whisper local)
+model = "small"             # "base" es más rápido; "small" entiende mejor el español
+language = "es"
+compute_type = "int8"       # Funciona bien en CPU
+tts_backend = "kokoro"      # Voz local, gratis y sin internet
+voice_id = "ef_dora"        # Voz femenina en español
+voice_speed = 1.0           # 0.8 = más lento, 1.2 = más rápido
+
+# --- Alternativas en la nube (requieren API key) ---
+# tts_backend = "openai_tts"    # OPENAI_API_KEY;  voces de mujer: "nova", "shimmer"
+# voice_id = "nova"
+# tts_backend = "elevenlabs"    # ELEVENLABS_API_KEY;  voz de mujer multilingüe "Sarah"
+# voice_id = "EXAVITQu4vr4xnSDxMaL"
+
+[server]
+host = "127.0.0.1"
+port = 8000

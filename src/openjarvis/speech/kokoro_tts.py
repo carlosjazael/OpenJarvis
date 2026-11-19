@@ -43,7 +43,7 @@ _VOICE_PREFIX_TO_LANG: Dict[str, str] = {
 }
 
 _DEFAULT_LANG_CODE = "a"
-_DEFAULT_VOICE_ID = "af_heart"
+_DEFAULT_VOICE_ID = "ef_dora"
 # Passed explicitly: KModel and KPipeline both print a "Defaulting repo_id"
 # warning to stdout when it is omitted, which lands mid-conversation in voice mode.
 _KOKORO_REPO_ID = "hexgrad/Kokoro-82M"
@@ -308,6 +308,10 @@ class KokoroTTSBackend(TTSBackend):
         # ask for and avoids voice IDs that have changed across Kokoro
         # releases.
         return [
+            # Spanish
+            "ef_dora",
+            "em_alex",
+            "em_santa",
             # American English
             "af_heart",
             "af_bella",
