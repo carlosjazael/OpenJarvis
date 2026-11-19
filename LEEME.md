@@ -37,20 +37,23 @@ uv run jarvis chat            # chat escrito
 uv run jarvis gui             # interfaz gráfica en el navegador (requiere Node.js 22+)
 ```
 
-## Reloj con ondas de voz
+## Reloj holográfico
 
-Un reloj redondo y flotante para el escritorio, con un anillo de ondas que se
-mueve con la voz de Kasandra cada vez que habla:
+Un núcleo holográfico flotante para el escritorio: una esfera de partículas que
+florece con la voz de Kasandra, anillos orbitales en 3D (uno es el segundero),
+rayos de luz y una onda expansiva cada vez que empieza a hablar.
 
 ```bash
-uv run kasandra-reloj        # en Windows abre sin ventana de consola
+uv sync --extra speech --extra voice --extra reloj
+uv run kasandra-reloj          # en Windows abre sin ventana de consola
+uv run kasandra-reloj --demo   # simula una voz para verlo en acción
 ```
 
 - Arrástralo con el botón izquierdo; recuerda dónde lo dejaste.
 - Clic derecho: "Siempre visible" o "Cerrar reloj".
 - Para que aparezca al encender Windows, pon un acceso directo a
   `.venv\Scripts\kasandra-reloj.exe` en la carpeta `shell:startup`.
-- Para desactivar el envío de ondas: variable de entorno `OPENJARVIS_VISUALIZER=0`.
+- Para no enviar las ondas: variable de entorno `OPENJARVIS_VISUALIZER=0`.
 
 ## Personalizar
 

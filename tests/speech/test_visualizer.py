@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import socket
-from datetime import datetime
 
 import numpy as np
 
@@ -61,47 +60,32 @@ def test_broadcast_can_be_disabled(monkeypatch):
     assert visualizer.start_broadcast(_tone(440), 24000) is None
 
 
-def test_bars_are_mirrored_and_complete():
-    bars = reloj.bars_from_bands([i / 36 for i in range(36)])
-    assert len(bars) == reloj.N_BARS
-    assert bars[:36] == bars[36:][::-1]
-    assert len(reloj.bars_from_bands([0.5])) == reloj.N_BARS
+def test_parse_packet_feed_end_and_garbage():
+    assert reloj.parse_packet(b'{"b": [10, 200, -5, "x"]}') == ("feed", [10, 100, 0, 0])
+    assert reloj.parse_packet(b'{"end": true}') == ("end", None)
+    assert reloj.parse_packet(b"not json") is None
+    assert reloj.parse_packet(b"[1, 2]") is None
 
 
-def test_wave_state_attack_release_and_end():
-    state = reloj.WaveState()
-    state.feed({"b": [100] * 36}, now=10.0)
-    assert state.speaking
-    assert state.step(10.0)[0] == 1.0  # instant attack
-    state.feed({"end": True}, now=10.1)
-    assert not state.speaking
-    after = state.step(10.1)[0]
-    assert 0.0 < after < 1.0  # smooth release towards the idle ring
+def test_drain_keeps_newest_event():
+    rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    rx.bind(("127.0.0.1", 0))
+    rx.setblocking(False)
+    tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    for packet in (b'{"b": [1]}', b'{"end": true}', b'{"b": [7]}'):
+        tx.sendto(packet, rx.getsockname())
+    import time
+
+    time.sleep(0.05)
+    assert reloj.drain(rx) == ("feed", [7])
+    assert reloj.drain(rx) is None
+    tx.close()
+    rx.close()
 
 
-def test_wave_state_times_out_without_end_packet():
-    state = reloj.WaveState()
-    state.feed({"b": [50] * 36}, now=1.0)
-    state.step(2.0)
-    assert not state.speaking
-
-
-def test_colors_and_date():
-    assert reloj.bar_color(0.0) == "#22d3ee"
-    assert reloj.bar_color(1.0) == "#f472b6"
-    assert reloj.fecha_es(datetime(2026, 11, 18)) == "miércoles 18 nov"
-
-
-def test_draw_issues_canvas_calls():
-    class Canvas:
-        def __init__(self):
-            self.calls = []
-
-        def __getattr__(self, name):
-            return lambda *a, **k: self.calls.append(name)
-
-    canvas = Canvas()
-    reloj.draw(canvas, [0.5] * reloj.N_BARS, datetime(2026, 11, 18, 20, 30), True)
-    assert canvas.calls[0] == "delete"
-    assert canvas.calls.count("create_line") >= reloj.N_BARS
-    assert "create_arc" in canvas.calls
+def test_js_call_and_html_hooks():
+    assert reloj.js_call(("end", None)) == "window.kasiEnd && window.kasiEnd()"
+    assert reloj.js_call(("feed", [1, 2])).endswith("kasiFeed([1, 2])")
+    html = reloj.HTML_PATH.read_text(encoding="utf-8")
+    assert "window.kasiFeed" in html and "window.kasiEnd" in html
+    assert f"const N_BANDS = {visualizer.N_BANDS};" in html
