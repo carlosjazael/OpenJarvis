@@ -743,6 +743,63 @@ class TestChatCompletions:
         assert executions == ["README.md"]
         assert engine.generate.call_count == 2
 
+    def test_streaming_plain_chat_streams_agent_tokens(self):
+        """smart_tools chat streams the agent's answer token by token."""
+        from openjarvis.agents.orchestrator import OrchestratorAgent
+        from openjarvis.tools._stubs import BaseTool, ToolSpec
+
+        class _NoopTool(BaseTool):
+            @property
+            def spec(self):
+                return ToolSpec(name="noop", description="x", parameters={})
+
+            def execute(self, **params):  # pragma: no cover
+                raise AssertionError("not called")
+
+        engine = _make_engine(content="NOT STREAMED")
+
+        async def _stream(messages, **kwargs):
+            for piece in ["Hola", ", ", "Carlos."]:
+                yield piece
+
+        engine.stream = _stream
+        agent = OrchestratorAgent(
+            engine,
+            "test-model",
+            tools=[_NoopTool()],
+            bus=EventBus(),
+            max_turns=3,
+            temperature=0.7,
+            max_tokens=128,
+            smart_tools=True,
+        )
+        app = create_app(
+            engine,
+            "test-model",
+            agent=agent,
+            bus=EventBus(),
+            config=_test_config(),
+        )
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "test-model",
+                "messages": [{"role": "user", "content": "Hola Kasi"}],
+                "stream": True,
+            },
+        )
+        assert resp.status_code == 200
+        pieces = []
+        for line in resp.text.strip().split("\n"):
+            if not line.startswith("data:") or "[DONE]" in line:
+                continue
+            data = json.loads(line[5:].strip())
+            delta = data.get("choices", [{}])[0].get("delta", {})
+            if delta.get("content"):
+                pieces.append(delta["content"])
+        assert pieces == ["Hola", ", ", "Carlos."]
+
     def test_streaming_with_tools_emits_tool_calls_and_bypasses_agent(self):
         """Regression for the streaming analog of #414.
 

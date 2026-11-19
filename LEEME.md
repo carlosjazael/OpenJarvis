@@ -75,6 +75,9 @@ Otros trucos que ya trae el preset `kasandra-inteligente`:
   llamada, sin cargar las herramientas. Solo las usa cuando pides buscar, calcular,
   leer un archivo o recordar algo. Pon `false` si quieres que siempre las tenga.
 - El reloj solo le manda los últimos 6 mensajes de la conversación.
+- En la charla normal la respuesta llega palabra por palabra: el reloj empieza a
+  hablar en cuanto Kasandra termina la primera frase, y prepara la voz de la
+  siguiente mientras dice la anterior.
 - Cierra programas que usan la tarjeta de video (AutoCAD, Photoshop, LM Studio)
   mientras hablas con ella: así el modelo cabe más en la GPU.
 - `qwen3.5:2b` responde 2-3 veces más rápido, pero es menos lista.

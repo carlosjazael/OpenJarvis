@@ -20,6 +20,9 @@ from openjarvis.speech.tts import TTSBackend, TTSResult
 _DEFAULT_VOICE_ID = (
     "pt-BR-ThalitaMultilingualNeural"  # multilingual; speaks Spanish naturally
 )
+# Used when the chosen voice returns no audio twice: same service, fast and
+# reliable, so a hiccup doesn't drop to a slow local voice mid-reply.
+_FALLBACK_VOICE_ID = "es-MX-DaliaNeural"
 
 
 def _rate_for_speed(speed: float) -> str:
@@ -85,7 +88,26 @@ class EdgeTTSBackend(TTSBackend):
         output_format: str = "mp3",
     ) -> TTSResult:
         voice = voice_id or _DEFAULT_VOICE_ID
-        mp3 = _run(_synthesize_mp3(text, voice, _rate_for_speed(speed)))
+        rate = _rate_for_speed(speed)
+        mp3 = b""
+        # The service sometimes answers "No audio was received" at random:
+        # retry once, then use a steadier voice instead of failing over to
+        # another (slower) backend.
+        attempts = [voice, voice]
+        if voice != _FALLBACK_VOICE_ID:
+            attempts.append(_FALLBACK_VOICE_ID)
+        last_error: Exception | None = None
+        for attempt in attempts:
+            try:
+                mp3 = _run(_synthesize_mp3(text, attempt, rate))
+            except Exception as exc:  # edge_tts.exceptions.NoAudioReceived, etc.
+                last_error = exc
+                continue
+            if mp3:
+                voice = attempt
+                break
+        if not mp3 and last_error is not None:
+            raise last_error
         metadata = {"backend": "edge_tts"}
         if output_format.lower() == "wav" and mp3:
             wav, sample_rate, duration = _mp3_to_wav(mp3)

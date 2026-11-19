@@ -102,6 +102,9 @@ class OrchestratorAgent(ToolUsingAgent):
     """
 
     agent_id = "orchestrator"
+    # run(..., on_delta=callable) streams the final answer when it comes from
+    # a call without tools (see ``smart_tools``).
+    supports_delta_stream = True
     _default_temperature = 0.7
     _default_max_tokens = 1024
     _default_max_turns = 10
@@ -476,7 +479,11 @@ class OrchestratorAgent(ToolUsingAgent):
             if openai_tools:
                 gen_kwargs["tools"] = openai_tools
 
-            result = self._generate(messages, **gen_kwargs)
+            on_delta = kwargs.get("on_delta")
+            if on_delta is not None and not openai_tools:
+                result = self._generate_streaming(messages, on_delta, **gen_kwargs)
+            else:
+                result = self._generate(messages, **gen_kwargs)
 
             # Accumulate token usage
             usage = result.get("usage", {})

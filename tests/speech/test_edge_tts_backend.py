@@ -80,3 +80,24 @@ def test_backend_id_and_female_default():
     assert mod.EdgeTTSBackend.backend_id == "edge_tts"
     assert "edge_tts" in TTS_BACKEND_ORDER
     assert default_voice_for("edge_tts") == "pt-BR-ThalitaMultilingualNeural"
+
+
+def test_retries_then_falls_back_to_dalia(monkeypatch):
+    from openjarvis.speech import edge_tts_backend as mod
+
+    calls: list[str] = []
+
+    async def flaky(text, voice, rate):
+        calls.append(voice)
+        if voice == "pt-BR-ThalitaMultilingualNeural":
+            raise RuntimeError("No audio was received")
+        return b"audio"
+
+    monkeypatch.setattr(mod, "_synthesize_mp3", flaky)
+    result = mod.EdgeTTSBackend().synthesize("Hola")
+    assert calls == [
+        "pt-BR-ThalitaMultilingualNeural",
+        "pt-BR-ThalitaMultilingualNeural",
+        "es-MX-DaliaNeural",
+    ]
+    assert result.voice_id == "es-MX-DaliaNeural" and result.audio == b"audio"

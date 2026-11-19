@@ -654,6 +654,7 @@ def _handle_agent(
     *,
     trace_store=None,
     bus=None,
+    on_delta=None,
 ) -> ChatCompletionResponse:
     """Run through agent.
 
@@ -680,6 +681,11 @@ def _handle_agent(
     # Locked for the full override-run-restore cycle (#759): only the
     # override/restore lines racing wouldn't be enough, since agent.run()
     # itself reads self._model throughout the call.
+    # Agents that can stream their final answer get a per-token callback.
+    run_kwargs = {}
+    if on_delta is not None and getattr(agent, "supports_delta_stream", False):
+        run_kwargs["on_delta"] = on_delta
+
     with _get_agent_model_lock(agent):
         original_model = agent._model
         if model:
@@ -689,9 +695,9 @@ def _handle_agent(
                 from openjarvis.traces.collector import TraceCollector
 
                 collector = TraceCollector(agent, store=trace_store, bus=bus)
-                result = collector.run(input_text, context=ctx)
+                result = collector.run(input_text, context=ctx, **run_kwargs)
             else:
-                result = agent.run(input_text, context=ctx)
+                result = agent.run(input_text, context=ctx, **run_kwargs)
         finally:
             agent._model = original_model
 
@@ -765,8 +771,18 @@ async def _handle_agent_stream(
         )
         yield f"data: {first_chunk.model_dump_json()}\n\n"
 
-        try:
-            response = await asyncio.to_thread(
+        # Real token streaming: the agent pushes text pieces from its worker
+        # thread onto this queue while it runs; anything it could not stream
+        # (tool-using turns) is sent in one piece when it finishes.
+        loop = asyncio.get_running_loop()
+        pieces: asyncio.Queue = asyncio.Queue()
+        streamed: list[str] = []
+
+        def _on_delta(piece: str) -> None:
+            loop.call_soon_threadsafe(pieces.put_nowait, piece)
+
+        task = asyncio.ensure_future(
+            asyncio.to_thread(
                 _handle_agent,
                 agent,
                 model,
@@ -774,7 +790,28 @@ async def _handle_agent_stream(
                 complexity_info,
                 trace_store=trace_store,
                 bus=bus,
+                on_delta=_on_delta,
             )
+        )
+        try:
+            while True:
+                getter = asyncio.ensure_future(pieces.get())
+                done, _ = await asyncio.wait(
+                    {getter, task}, return_when=asyncio.FIRST_COMPLETED
+                )
+                if getter in done:
+                    piece = getter.result()
+                    streamed.append(piece)
+                    delta_chunk = ChatCompletionChunk(
+                        id=chunk_id,
+                        model=model,
+                        choices=[StreamChoice(delta=DeltaMessage(content=piece))],
+                    )
+                    yield f"data: {delta_chunk.model_dump_json()}\n\n"
+                    continue
+                getter.cancel()
+                break
+            response = task.result()
         except Exception as exc:
             logging.getLogger("openjarvis.server").error(
                 "Agent stream error: %s",
@@ -797,8 +834,19 @@ async def _handle_agent_stream(
             yield "data: [DONE]\n\n"
             return
 
+        # Flush pieces queued right before the agent finished.
+        while not pieces.empty():
+            piece = pieces.get_nowait()
+            streamed.append(piece)
+            delta_chunk = ChatCompletionChunk(
+                id=chunk_id,
+                model=model,
+                choices=[StreamChoice(delta=DeltaMessage(content=piece))],
+            )
+            yield f"data: {delta_chunk.model_dump_json()}\n\n"
+
         content = _response_content(response)
-        if content:
+        if content and not streamed:
             content_chunk = ChatCompletionChunk(
                 id=chunk_id,
                 model=model,

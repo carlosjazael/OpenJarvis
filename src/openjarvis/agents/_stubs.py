@@ -8,15 +8,18 @@ base for agents that accept tools.
 
 from __future__ import annotations
 
+import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from openjarvis.core.config import load_config
 from openjarvis.core.events import EventBus, EventType
 from openjarvis.core.types import Conversation, Message, Role, ToolResult
 from openjarvis.engine._stubs import InferenceEngine
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_ENGINE_OPTION_KEYS = frozenset({"num_ctx", "num_gpu"})
 
@@ -316,6 +319,61 @@ class BaseAgent(ABC):
             )
 
         return result
+
+    def _generate_streaming(
+        self,
+        messages: list[Message],
+        on_delta: Callable[[str], None],
+        **extra_kwargs: Any,
+    ) -> dict:
+        """Like :meth:`_generate` but streams text pieces to *on_delta*.
+
+        Only for calls that cannot produce tool calls (no ``tools`` kwarg).
+        Runs the engine's async ``stream()`` on a private event loop, so it
+        must be called from a thread with no running loop (agents run in a
+        worker thread on the server). Falls back to :meth:`_generate` when
+        streaming fails before any text was produced.
+        """
+        import asyncio
+
+        gen_kwargs = {
+            key: value
+            for key, value in self._engine_options.items()
+            if key in _ALLOWED_ENGINE_OPTION_KEYS
+        }
+        gen_kwargs.update(extra_kwargs)
+        parts: list[str] = []
+
+        async def _collect() -> None:
+            async for piece in self._engine.stream(
+                messages,
+                model=self._model,
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+                **gen_kwargs,
+            ):
+                if not piece:
+                    continue
+                parts.append(piece)
+                try:
+                    on_delta(piece)
+                except Exception:
+                    logger.debug("on_delta callback failed", exc_info=True)
+
+        try:
+            asyncio.run(_collect())
+        except Exception:
+            if not parts:
+                logger.debug("streaming failed; falling back", exc_info=True)
+                return self._generate(messages, **extra_kwargs)
+            logger.debug("stream ended early", exc_info=True)
+        usage = dict(getattr(self._engine, "_last_stream_usage", {}) or {})
+        return {
+            "content": "".join(parts),
+            "usage": usage,
+            "tool_calls": [],
+            "finish_reason": "stop",
+        }
 
     def _max_turns_result(
         self,
