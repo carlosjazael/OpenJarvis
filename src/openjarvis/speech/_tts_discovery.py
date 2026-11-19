@@ -31,7 +31,7 @@ TTS_BACKEND_ORDER = (
 BACKEND_DEFAULT_VOICE = {
     "xtts": "Tanja Adelina",  # female, local XTTS-v2 server
     "kokoro": "ef_dora",  # Spanish female
-    "edge_tts": "pt-BR-ThalitaMultilingualNeural",  # female, multilingual (online)
+    "edge_tts": "es-MX-DaliaNeural",  # female, Mexican Spanish (online)
     "openai_tts": "nova",  # female OpenAI preset
     "cartesia": "",  # no safe static default; let Cartesia choose
     "elevenlabs": "EXAVITQu4vr4xnSDxMaL",  # "Sarah", female (multilingual)
