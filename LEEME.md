@@ -53,6 +53,9 @@ uv run kasandra-reloj --demo   # simula una voz para verlo en acción
 - Clic derecho: "Siempre visible" o "Cerrar reloj".
 - Para que aparezca al encender Windows, pon un acceso directo a
   `.venv\Scripts\kasandra-reloj.exe` en la carpeta `shell:startup`.
+- **Escribirle sin micrófono:** usa la caja de texto bajo el núcleo (o empieza a
+  teclear con el reloj seleccionado). Ella contesta con subtítulos y en voz alta,
+  con las mismas herramientas y memoria del chat de voz.
 - Para no enviar las ondas: variable de entorno `OPENJARVIS_VISUALIZER=0`.
 
 ## Personalizar

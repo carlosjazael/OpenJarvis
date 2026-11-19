@@ -5,12 +5,34 @@
 <title>Kasandra</title>
 <style>
   html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-  body { width: 100vw; height: 100vh; display: grid; place-items: center; user-select: none; cursor: default; }
-  canvas { display: block; }
+  body { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; user-select: none; cursor: default; font-family: "Segoe UI Variable Display","Segoe UI","Inter",Arial,sans-serif; }
+  canvas { display: block; flex: none; }
+  #panel { width: 92%; display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: -6px; }
+  #sub { min-height: 34px; max-width: 100%; text-align: center; font-size: 12.5px; line-height: 1.35; color: #d8f6ff;
+         text-shadow: 0 0 8px rgba(40,220,255,.8), 0 0 2px #000, 0 0 6px #000; opacity: 0; transition: opacity .6s;
+         display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #sub.on { opacity: 1; }
+  #sub .you { color: #ff9fd2; text-shadow: 0 0 8px rgba(255,70,170,.8), 0 0 6px #000; }
+  #ask { width: 100%; position: relative; }
+  #q { width: 100%; box-sizing: border-box; padding: 9px 40px 9px 16px; border-radius: 999px; outline: none;
+       background: rgba(4,8,26,.78); color: #e6faff; font: inherit; font-size: 13px; letter-spacing: .3px;
+       border: 1px solid rgba(40,220,255,.45); box-shadow: 0 0 14px rgba(40,220,255,.25), inset 0 0 12px rgba(150,95,255,.15);
+       opacity: .6; transition: opacity .3s, box-shadow .3s, border-color .3s; }
+  #q::placeholder { color: rgba(170,210,240,.55); }
+  #q:hover, #q:focus { opacity: 1; border-color: rgba(40,220,255,.9); box-shadow: 0 0 22px rgba(40,220,255,.45), inset 0 0 14px rgba(150,95,255,.25); }
+  #ask button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%;
+       border: 0; cursor: pointer; background: radial-gradient(circle, rgba(40,220,255,.9), rgba(150,95,255,.7)); color: #04081a; font-size: 14px; }
 </style>
 </head>
 <body>
 <canvas id="hud"></canvas>
+<div id="panel">
+  <div id="sub"></div>
+  <form id="ask" autocomplete="off">
+    <input id="q" maxlength="2000" placeholder="Escríbele a Kasandra…">
+    <button type="submit" title="Enviar">➤</button>
+  </form>
+</div>
 <script>
 "use strict";
 // ─────────────────────────────────────────────────────────────────────────
@@ -25,10 +47,11 @@ const N_BANDS = 36;
 const cv = document.getElementById("hud");
 const ctx = cv.getContext("2d");
 let S = 0, C = 0, U = 1, DPR = 1;
+const PANEL = 96;                 // espacio bajo el núcleo para subtítulos y la caja de texto
 
 function resize() {
   DPR = window.devicePixelRatio || 1;
-  S = Math.min(window.innerWidth, window.innerHeight);
+  S = Math.min(window.innerWidth, window.innerHeight - PANEL);
   C = S / 2; U = S / 480;
   cv.width = S * DPR; cv.height = S * DPR;
   cv.style.width = S + "px"; cv.style.height = S + "px";
@@ -63,6 +86,7 @@ const spriteFor = (l) => l < 0.3 ? sprites.cyan : l < 0.6 ? sprites.violet : l <
 // ── audio ──
 const target = new Float32Array(N_BANDS), level = new Float32Array(N_BANDS);
 let speaking = false, lastPacket = 0, energy = 0, speakMix = 0, bass = 0;
+let thinking = false, thinkMix = 0;
 const shock = [];
 window.kasiFeed = (b) => {
   if (!speaking) shock.push({ r: 110, a: 1 });
@@ -70,6 +94,34 @@ window.kasiFeed = (b) => {
   speaking = true; lastPacket = performance.now();
 };
 window.kasiEnd = () => { speaking = false; target.fill(0); };
+
+// ── texto: escribirle a Kasandra ──
+const subEl = document.getElementById("sub"), qEl = document.getElementById("q");
+let subTimer = 0;
+function showSub(html, ms) {
+  subEl.innerHTML = html; subEl.classList.add("on");
+  clearTimeout(subTimer); subTimer = setTimeout(() => subEl.classList.remove("on"), ms);
+}
+const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+document.getElementById("ask").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const text = qEl.value.trim();
+  if (!text) return;
+  qEl.value = "";
+  showSub(`<span class="you">Tú:</span> ${esc(text)}`, 60000);
+  window.kasiThinking(true);
+  console.log("KASI_SEND:" + JSON.stringify(text));   // lo recibe la ventana de Python
+});
+window.kasiThinking = (on) => { thinking = !!on; };
+window.kasiReply = (text) => {
+  thinking = false;
+  const t = String(text || "");
+  showSub(esc(t.length > 260 ? t.slice(0, 257) + "…" : t), Math.min(30000, 6000 + t.length * 60));
+};
+window.kasiStatus = (text) => showSub(`<span class="you">${esc(String(text))}</span>`, 8000);
+window.addEventListener("keydown", (ev) => {
+  if (document.activeElement !== qEl && ev.key.length === 1 && !ev.ctrlKey && !ev.altKey) qEl.focus();
+});
 
 // ── esfera de partículas (Fibonacci) ──
 const N = 1400, pts = [];
@@ -96,7 +148,7 @@ const FOV = 620;
 const proj = (p) => { const k = FOV / (FOV + p.z * U); return { x: C + p.x * U * k, y: C + p.y * U * k, k, z: p.z }; };
 
 function drawRing(rg, t, secs) {
-  const spin = t * rg.speed * (1 + energy * 2.5);
+  const spin = t * rg.speed * (1 + energy * 2.5 + thinkMix * 4);
   const seg = 180, back = [], front = [];
   for (let i = 0; i <= seg; i++) {
     const a = i / seg * TAU;
@@ -182,6 +234,7 @@ function frame(nowMs) {
   energy += (sum / N_BANDS - energy) * 0.3;
   bass += ((level[0] + level[1] + level[2] + level[3]) / 4 - bass) * 0.35;
   speakMix += ((speaking ? 1 : 0) - speakMix) * 0.07;
+  thinkMix += ((thinking ? 1 : 0) - thinkMix) * 0.06;
   const boost = 0.3 + 0.7 * speakMix;
   const now = new Date(), secs = now.getSeconds() + now.getMilliseconds() / 1000;
 
@@ -200,7 +253,8 @@ function frame(nowMs) {
 
   // texto curvo exterior
   curvedText("K A S A N D R A   ·   N Ú C L E O   P E R S O N A L", 226, -Math.PI / 2, 8.5, CYAN, 0.55 + 0.3 * speakMix);
-  curvedText(speaking ? "▲  T R A N S M I T I E N D O  ▲" : "◇  E N   E S P E R A  ◇", 226, Math.PI / 2, 8, speaking ? PINK : VIOLET, 0.6);
+  const status = speaking ? "▲  T R A N S M I T I E N D O  ▲" : thinking ? "◈  P R O C E S A N D O  ◈" : "◇  E N   E S P E R A  ◇";
+  curvedText(status, 226, Math.PI / 2, 8, speaking ? PINK : thinking ? GOLD : VIOLET, 0.6 + 0.3 * thinkMix);
 
   // anillos traseros + delanteros (se dibujan completos con profundidad)
   for (const rg of rings) drawRing(rg, t, secs);
@@ -226,7 +280,7 @@ function frame(nowMs) {
   for (const p of pts) {
     const l = level[p.band];
     const wob = Math.sin(t * 1.6 + p.seed) * 0.5 + 0.5;
-    const R = 96 + (2.5 + 3 * wob) * (1 - speakMix) + l * 62 * boost + bass * 10 * Math.sin(p.seed * 3 + t * 8) * speakMix;
+    const R = 96 + (2.5 + 3 * wob) * (1 - speakMix) + thinkMix * 6 * Math.sin(p.y * 9 - t * 6) + l * 62 * boost + bass * 10 * Math.sin(p.seed * 3 + t * 8) * speakMix;
     const q = rot({ x: p.x * R, y: p.y * R, z: p.z * R }, rx, 0, ry);
     const pr = proj(q); pr.l = l; pr.R = R;
     proj3.push(pr);

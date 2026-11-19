@@ -89,3 +89,29 @@ def test_js_call_and_html_hooks():
     html = reloj.HTML_PATH.read_text(encoding="utf-8")
     assert "window.kasiFeed" in html and "window.kasiEnd" in html
     assert f"const N_BANDS = {visualizer.N_BANDS};" in html
+
+
+def test_text_bridge_helpers():
+    assert reloj.parse_send('KASI_SEND:"hola"') == "hola"
+    assert reloj.parse_send('KASI_SEND:"   "') is None
+    assert reloj.parse_send("otro log") is None
+    assert reloj.parse_send("KASI_SEND:{bad") is None
+    history = [{"role": "user", "content": str(i)} for i in range(20)]
+    payload = reloj.build_payload("qwen3.5:9b", history)
+    assert payload["model"] == "qwen3.5:9b" and len(payload["messages"]) == 12
+    ok = {"choices": [{"message": {"content": "Listo"}}]}
+    assert reloj.extract_reply(ok) == "Listo"
+    assert reloj.extract_reply({}) == ""
+
+
+def test_clean_for_speech_strips_markdown():
+    text = "# Título\n- **uno**\n1. `dos`\n```py\ncode\n```\n[link](http://x)"
+    assert reloj.clean_for_speech(text) == "Título uno dos link"
+
+
+def test_html_has_text_box_hooks():
+    html = reloj.HTML_PATH.read_text(encoding="utf-8")
+    for hook in ("window.kasiReply", "window.kasiThinking", "window.kasiStatus"):
+        assert hook in html
+    assert reloj.SEND_PREFIX in html
+    assert f"const PANEL = {reloj.PANEL};" in html
