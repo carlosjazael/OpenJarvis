@@ -15,7 +15,7 @@ from openjarvis.speech import edge_tts_backend as mod
 
 def _fake_edge_tts(monkeypatch, payload: bytes, seen: dict):
     class Communicate:
-        def __init__(self, text, voice, rate="+0%"):
+        def __init__(self, text, voice, rate="+0%", pitch="+0Hz"):
             seen.update(text=text, voice=voice, rate=rate)
 
         async def stream(self):
