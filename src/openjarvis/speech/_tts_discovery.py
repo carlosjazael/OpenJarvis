@@ -16,12 +16,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Priority order: local first, then cloud.
-TTS_BACKEND_ORDER = ("edge_tts", "kokoro", "openai_tts", "cartesia", "elevenlabs")
+TTS_BACKEND_ORDER = (
+    "edge_tts",
+    "xtts",
+    "kokoro",
+    "openai_tts",
+    "cartesia",
+    "elevenlabs",
+)
 
 # Voice IDs are backend-specific and NOT portable. ``speech.voice_id`` applies
 # only to ``speech.tts_backend``; if synthesis falls back to another backend we
 # use that backend's own default rather than passing an unrecognized ID through.
 BACKEND_DEFAULT_VOICE = {
+    "xtts": "Tanja Adelina",  # female, local XTTS-v2 server
     "kokoro": "ef_dora",  # Spanish female
     "edge_tts": "pt-BR-ThalitaMultilingualNeural",  # female, multilingual (online)
     "openai_tts": "nova",  # female OpenAI preset
