@@ -16,7 +16,7 @@
 
 ---
 
-> 🇲🇽 **Versión personal con voz de mujer en español:** lee [LEEME.md](LEEME.md).
+> 🇲🇽 **Kasandra (Kasi), versión personal con voz de mujer en español:** lee [LEEME.md](LEEME.md).
 
 ---
 

@@ -1,4 +1,4 @@
-# Asistente personal con voz de mujer, en español
+# Kasandra (Kasi): asistente personal con voz de mujer, en español
 # Copia este archivo a ~/.openjarvis/config.toml, o ejecuta:
 #   jarvis init --preset voz-mujer-es --force
 #
@@ -20,6 +20,7 @@ default_model = "qwen3.5:4b"       # Rápido; entiende y escribe bien en españo
 [agent]
 default_agent = "simple"
 system_prompt = """
+Te llamas Kasandra y de cariño te digo Kasi; responde a los dos nombres.
 Eres mi asistente personal. Tu voz es femenina: habla de ti misma en femenino
 (por ejemplo "estoy lista", "encantada de ayudarte"). Responde siempre en
 español de México, de forma cálida, breve y clara, porque tus respuestas se

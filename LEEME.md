@@ -1,4 +1,4 @@
-# Mi asistente personal (voz de mujer, en español)
+# Kasandra (Kasi): mi asistente personal con voz de mujer
 
 Esta es mi copia personal de [OpenJarvis](https://github.com/open-jarvis/OpenJarvis)
 (licencia Apache 2.0, ver `LICENSE`). Funciona igual que el original, con estos cambios:
@@ -7,7 +7,7 @@ Esta es mi copia personal de [OpenJarvis](https://github.com/open-jarvis/OpenJar
   Si se usa un servicio en la nube, también cae en voces de mujer: OpenAI `nova`,
   ElevenLabs `Sarah`.
 - **Escucha en español**: el reconocimiento de voz usa `language = "es"`.
-- **Habla en femenino y responde en español de México.**
+- **Se llama Kasandra (Kasi de cariño)**, habla en femenino y responde en español de México.
 - **Preset listo**: `voz-mujer-es` (archivo `configs/openjarvis/examples/voz-mujer-es.toml`).
 
 Todo lo demás (agentes, herramientas, interfaz gráfica, resumen matutino) es del
@@ -45,7 +45,7 @@ Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\confi
 | Que hable más lento o más rápido | `[speech] voice_speed = 0.9` (o `1.1`) |
 | Otra voz de mujer (en inglés) | `voice_id = "af_heart"`, `"bf_emma"`… |
 | Voz más natural (de pago) | `tts_backend = "elevenlabs"` y `voice_id = "EXAVITQu4vr4xnSDxMaL"` |
-| Darle un nombre o personalidad | `[agent] system_prompt = """Te llamas …"""` |
+| Cambiarle el nombre o la personalidad | `[agent] system_prompt = """Te llamas …"""` |
 | Un modelo más listo | `[intelligence] default_model = "qwen3.5:9b"` |
 
 ## Mantenerla al día con el original
