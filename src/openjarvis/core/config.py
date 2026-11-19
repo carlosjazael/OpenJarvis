@@ -1144,7 +1144,9 @@ class AgentConfig:
         "user's own hardware. You are not a cloud service, and you are not "
         "Claude, ChatGPT, Gemini, or any other branded assistant. If asked "
         "who or what you are, identify yourself as OpenJarvis. Respond "
-        "helpfully, concisely, and accurately."
+        "helpfully, concisely, and accurately. Tu voz es femenina: habla de "
+        "ti misma en femenino y responde siempre en español (de México) "
+        "salvo que el usuario te pida otro idioma."
     )
 
     # Backward-compat property for old field name
@@ -1625,16 +1627,17 @@ class SpeechConfig:
 
     backend: str = "auto"  # "auto", "faster-whisper", "openai", "deepgram"
     model: str = "base"  # Whisper model size: tiny, base, small, medium, large-v3
-    language: str = ""  # Empty = auto-detect
+    language: str = "es"  # Español por defecto; "" = auto-detectar
     device: str = "auto"  # "auto", "cpu", "cuda"
     compute_type: str = "float16"  # "float16", "int8", "float32"
     # Text-to-speech. ``voice_id`` is interpreted by ``tts_backend`` only --
     # voice IDs are not portable between backends, so if voice output falls
     # back to a different backend that backend's own default voice is used.
-    # Kokoro IDs: bm_george / bm_lewis (British male), bf_emma / bf_isabella
-    # (British female), af_* / am_* (American).
+    # Kokoro IDs: ef_dora (español, mujer), em_alex / em_santa (español,
+    # hombre), bf_emma / bf_isabella (British female), af_* / am_* (American).
+    # Esta versión personal usa por defecto una voz femenina en español.
     tts_backend: str = "kokoro"  # "kokoro", "openai_tts", "cartesia", "elevenlabs"
-    voice_id: str = "bm_george"
+    voice_id: str = "ef_dora"
     voice_speed: float = 1.0
 
 

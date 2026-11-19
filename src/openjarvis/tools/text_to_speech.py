@@ -107,7 +107,7 @@ class TextToSpeechTool(BaseTool):
 
         # Only forward parameters the caller (or config) actually set. Passing
         # voice_id="" or speed=1.0 unconditionally overrides each backend's own
-        # default value: kokoro's synthesize() defaults voice_id to "af_heart",
+        # default value: kokoro's synthesize() defaults voice_id to "ef_dora",
         # and an empty string overrides it so the local backend is asked for a
         # voice named "" and 404s while paid backends happen to tolerate it.
         synth_kwargs: dict[str, Any] = {}

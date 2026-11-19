@@ -16,6 +16,10 @@
 
 ---
 
+> 🇲🇽 **Versión personal con voz de mujer en español:** lee [LEEME.md](LEEME.md).
+
+---
+
 <div align="center">
   <img alt="OpenJarvis demo reel" src="assets/openjarvis_demo_reel.webp" width="75%">
 </div>
