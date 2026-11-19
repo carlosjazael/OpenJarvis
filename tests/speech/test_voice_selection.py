@@ -68,10 +68,11 @@ def test_defaults_are_spanish_female_voice():
     from openjarvis.core.config import SpeechConfig
 
     speech = SpeechConfig()
-    assert speech.tts_backend == "kokoro"
-    assert speech.voice_id == "ef_dora"
+    assert speech.tts_backend == "edge_tts"
+    assert speech.voice_id == "pt-BR-ThalitaMultilingualNeural"
     assert speech.language == "es"
     assert _BACKEND_DEFAULT_VOICE["kokoro"] == "ef_dora"
+    assert _BACKEND_DEFAULT_VOICE["edge_tts"] == "pt-BR-ThalitaMultilingualNeural"
     assert _BACKEND_DEFAULT_VOICE["openai_tts"] == "nova"
 
 
@@ -150,10 +151,10 @@ def test_synthesis_failure_falls_back_without_retrying_or_leaking_voice(monkeypa
     speak("First reply", Console(), session)
     speak("Second reply", Console(), session)
 
-    assert checked == ["openai_tts", "kokoro"]
+    assert checked == ["openai_tts", "edge_tts"]
     assert spoken == [
         ("openai_tts", "nova"),
-        ("kokoro", "ef_dora"),
-        ("kokoro", "ef_dora"),
+        ("edge_tts", "pt-BR-ThalitaMultilingualNeural"),
+        ("edge_tts", "pt-BR-ThalitaMultilingualNeural"),
     ]
     assert played == [b"wav", b"wav"]
