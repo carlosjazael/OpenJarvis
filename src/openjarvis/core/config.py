@@ -1144,6 +1144,9 @@ class AgentConfig:
     # tool schemas and the extra tool round-trip, which is much faster on
     # small local models.
     smart_tools: bool = False
+    # Add a per-turn note telling the model to match the tone of the latest
+    # message (rough joking vs. normal), so it doesn't stay rude afterwards.
+    mirror_tone: bool = False
     default_system_prompt: str = (
         "Eres Kasandra (de cariño, Kasi), una asistente personal de IA que "
         "funciona localmente en la computadora del usuario. No eres un "

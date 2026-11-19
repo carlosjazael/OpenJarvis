@@ -89,6 +89,9 @@ Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\confi
 
 | Quiero… | Cambia |
 |---|---|
+| Escribirle | Doble clic en la esfera abre la caja de texto; `Esc` o 20 s sin usarla la ocultan |
+| Ver también el texto de sus respuestas en el reloj | `setx OPENJARVIS_RELOJ_SUBTITULOS 1` (por defecto solo se escuchan) |
+| Voz más grave o más aguda | `voice_id = "es-MX-DaliaNeural;pitch=-8Hz"` (negativo = más grave) |
 | Que hable más lento o más rápido | `[speech] voice_speed = 0.9` (o `1.1`) |
 | Otra voz de mujer | `voice_id = "es-MX-DaliaNeural"`, `"es-US-PalomaNeural"`, `"es-CO-SalomeNeural"` |
 | Voz sin internet | `tts_backend = "kokoro"` y `voice_id = "ef_dora"` |

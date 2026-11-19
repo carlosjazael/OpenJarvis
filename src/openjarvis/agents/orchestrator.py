@@ -108,6 +108,34 @@ def precompute_math(text: str) -> Optional[str]:
     return "; ".join(notes) or None
 
 
+_ROUGH_TONE = re.compile(
+    r"\b(pinch\w*|cabr[oó]n\w*|cabrona\w*|chinga\w*|ching\w*|pendej\w*|"
+    r"mam[oó]n\w*|no mames|verga\w*|culer\w*|put[ao]s?|putit\w*|mierda|"
+    r"carajo|joder|jodid\w*|in[uú]til|est[uú]pid\w*|idiota|imb[eé]cil|"
+    r"g[uü]ey|wey|güevon\w*|huev[oó]n\w*|fuck\w*|shit|bitch)\b",
+    re.IGNORECASE,
+)
+
+
+def tone_note(text: str) -> str:
+    """One-line instruction that pins the reply's tone to *this* message.
+
+    Small local models keep the previous turn's mood; this tells them, every
+    turn, whether the user is joking rough or talking normally.
+    """
+    if _ROUGH_TONE.search(text or ""):
+        return (
+            "Tono para esta respuesta: el usuario te habla con groserías o te "
+            "echa carrilla. Contéstale con ingenio y groserías bien dichas, "
+            "con clase, sin slang de barrio, y luego ayúdalo."
+        )
+    return (
+        "Tono para esta respuesta: el usuario te habla normal. Contesta "
+        "amable y educada, sin groserías ni insultos ni sarcasmo, aunque antes "
+        "se hayan llevado pesado."
+    )
+
+
 def needs_tools(text: str) -> bool:
     """Heuristic: does *text* look like it needs a tool call?"""
     return bool(_TOOL_HINTS.search(text or ""))
@@ -191,6 +219,7 @@ class OrchestratorAgent(ToolUsingAgent):
         rate_limiter: Optional[Any] = None,
         before_tool_call: Optional[Callable[[str, dict[str, Any]], bool]] = None,
         smart_tools: bool = False,
+        mirror_tone: bool = False,
     ) -> None:
         super().__init__(
             engine,
@@ -212,6 +241,7 @@ class OrchestratorAgent(ToolUsingAgent):
         self._parallel_tools = parallel_tools
         self._before_tool_call = before_tool_call
         self._smart_tools = smart_tools
+        self._mirror_tone = mirror_tone
 
     def run(
         self,
@@ -519,6 +549,8 @@ class OrchestratorAgent(ToolUsingAgent):
 
         # Get OpenAI-format tool definitions
         openai_tools = self._executor.get_openai_tools() if self._tools else []
+        if self._mirror_tone:
+            messages.append(Message(role=Role.SYSTEM, content=tone_note(input)))
         math_note = precompute_math(input) if self._smart_tools else None
         if math_note:
             # The answer is computed here, exactly; the model only phrases it.

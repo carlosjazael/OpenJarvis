@@ -1129,3 +1129,20 @@ def test_math_is_solved_in_code_in_one_call():
     assert "tools" not in kwargs
     sent = engine.generate.call_args.args[0]
     assert any("15% de 800 = 120" in (m.content or "") for m in sent)
+
+
+def test_tone_note_follows_latest_message():
+    from openjarvis.agents.orchestrator import tone_note
+
+    assert "groserías" in tone_note("Eres una inútil, cabrona")
+    assert "amable" in tone_note("Gracias, ¿me ayudas a organizar mi tarde?")
+
+
+def test_mirror_tone_adds_note():
+    engine = _make_engine_no_tools("Claro.")
+    agent = OrchestratorAgent(
+        engine, "m", tools=[_CalculatorStub()], smart_tools=True, mirror_tone=True
+    )
+    agent.run("Gracias, ¿me ayudas a organizar mi tarde?")
+    sent = engine.generate.call_args.args[0]
+    assert any("amable y educada" in (m.content or "") for m in sent)

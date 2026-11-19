@@ -307,6 +307,10 @@ def chat(
                     __import__("inspect").signature(agent_cls.__init__).parameters
                 ):
                     kwargs["smart_tools"] = True
+                if config.agent.mirror_tone and "mirror_tone" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    kwargs["mirror_tone"] = True
 
                 import inspect as _inspect
 

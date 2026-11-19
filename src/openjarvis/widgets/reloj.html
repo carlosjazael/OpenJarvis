@@ -13,7 +13,8 @@
          display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   #sub.on { opacity: 1; }
   #sub .you { color: #ff9fd2; text-shadow: 0 0 8px rgba(255,70,170,.8), 0 0 6px #000; }
-  #ask { width: 100%; position: relative; }
+  #ask { width: 100%; position: relative; transition: opacity .35s, transform .35s; }
+  #ask.hidden { opacity: 0; transform: translateY(-8px) scale(.96); pointer-events: none; }
   #q { width: 100%; box-sizing: border-box; padding: 9px 40px 9px 16px; border-radius: 999px; outline: none;
        background: rgba(4,8,26,.78); color: #e6faff; font: inherit; font-size: 13px; letter-spacing: .3px;
        border: 1px solid rgba(40,220,255,.45); box-shadow: 0 0 14px rgba(40,220,255,.25), inset 0 0 12px rgba(150,95,255,.15);
@@ -28,7 +29,7 @@
 <canvas id="hud"></canvas>
 <div id="panel">
   <div id="sub"></div>
-  <form id="ask" autocomplete="off">
+  <form id="ask" class="hidden" autocomplete="off">
     <input id="q" maxlength="2000" placeholder="Escríbele a Kasandra…">
     <button type="submit" title="Enviar">➤</button>
   </form>
@@ -112,14 +113,40 @@ document.getElementById("ask").addEventListener("submit", (ev) => {
   window.kasiThinking(true);
   console.log("KASI_SEND:" + JSON.stringify(text));   // lo recibe la ventana de Python
 });
+// ── caja de texto: oculta hasta doble clic en la esfera ──
+const askEl = document.getElementById("ask");
+let hideTimer = 0;
+function scheduleHide(ms) {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    if (document.activeElement === qEl && qEl.value.trim()) return scheduleHide(ms);
+    window.kasiHideAsk();
+  }, ms);
+}
+window.kasiShowAsk = () => {
+  askEl.classList.remove("hidden");
+  setTimeout(() => qEl.focus(), 50);
+  scheduleHide(20000);
+};
+window.kasiHideAsk = () => { askEl.classList.add("hidden"); qEl.blur(); };
+window.kasiToggleAsk = () => (askEl.classList.contains("hidden") ? window.kasiShowAsk() : window.kasiHideAsk());
+document.getElementById("hud").addEventListener("dblclick", () => window.kasiToggleAsk());
+qEl.addEventListener("input", () => scheduleHide(20000));
+qEl.addEventListener("keydown", (ev) => { if (ev.key === "Escape") window.kasiHideAsk(); });
+askEl.addEventListener("submit", () => window.kasiHideAsk());
 window.kasiThinking = (on) => { thinking = !!on; };
+// Las respuestas solo se escuchan; el texto aparece únicamente con ?subs=1
+// (variable de entorno OPENJARVIS_RELOJ_SUBTITULOS=1).
+const SHOW_REPLY = new URLSearchParams(location.search).get("subs") === "1";
 window.kasiReply = (text) => {
   thinking = false;
+  if (!SHOW_REPLY) { clearTimeout(subTimer); subEl.classList.remove("on"); return; }
   const t = String(text || "");
   showSub(esc(t.length > 260 ? t.slice(0, 257) + "…" : t), Math.min(30000, 6000 + t.length * 60));
 };
 window.kasiStatus = (text) => showSub(`<span class="you">${esc(String(text))}</span>`, 8000);
 window.addEventListener("keydown", (ev) => {
+  if (askEl.classList.contains("hidden")) return;
   if (document.activeElement !== qEl && ev.key.length === 1 && !ev.ctrlKey && !ev.altKey) qEl.focus();
 });
 

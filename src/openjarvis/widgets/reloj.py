@@ -532,8 +532,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     view.move(*pos)
 
     url = QUrl.fromLocalFile(str(HTML_PATH))
+    query = []
     if demo:
-        url.setQuery("demo=1")
+        query.append("demo=1")
+    if os.environ.get("OPENJARVIS_RELOJ_SUBTITULOS", "0") == "1":
+        query.append("subs=1")  # show Kasandra's replies as text too
+    if query:
+        url.setQuery("&".join(query))
     view.load(url)
 
     # ── menú y arrastre ──
@@ -551,6 +556,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     menu.addAction("Cerrar reloj", app.quit)
     view.customContextMenuRequested.connect(lambda p: menu.popup(view.mapToGlobal(p)))
 
+    last_press: list = [0.0, QPoint()]
+
     class Dragger(QObject):
         def eventFilter(self, obj: Any, event: Any) -> bool:  # noqa: N802
             if (
@@ -560,6 +567,17 @@ def main(argv: Optional[list[str]] = None) -> int:
                 and (obj is view or view.isAncestorOf(obj))
                 and view.mapFromGlobal(event.globalPosition().toPoint()).y() < SIZE
             ):
+                # A press starts a window drag, which swallows the page's
+                # dblclick, so detect the double click here: it toggles the
+                # (normally hidden) text box.
+                now = time.monotonic()
+                gp = event.globalPosition().toPoint()
+                lt, lp = last_press
+                if now - lt < 0.4 and (gp - lp).manhattanLength() < 8:
+                    last_press[0] = 0.0
+                    bridge.js.emit("window.kasiToggleAsk()")
+                    return True
+                last_press[0], last_press[1] = now, gp
                 handle = view.windowHandle()
                 if handle is not None and handle.startSystemMove():
                     return True
