@@ -148,3 +148,16 @@ def test_pop_sentences_and_sse():
         b"data: [DONE]",
     ]
     assert "".join(reloj.iter_sse_text(lines)) == "Hola Carlos."
+
+
+def test_speaks_after_reply(monkeypatch):
+    from types import SimpleNamespace
+
+    from openjarvis.widgets import reloj
+
+    monkeypatch.delenv("OPENJARVIS_VOZ_AL_TERMINAR", raising=False)
+    xtts = SimpleNamespace(speech=SimpleNamespace(tts_backend="xtts"))
+    edge = SimpleNamespace(speech=SimpleNamespace(tts_backend="edge_tts"))
+    assert reloj.speaks_after_reply(xtts) and not reloj.speaks_after_reply(edge)
+    monkeypatch.setenv("OPENJARVIS_VOZ_AL_TERMINAR", "0")
+    assert not reloj.speaks_after_reply(xtts)

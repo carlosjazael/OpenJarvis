@@ -337,6 +337,19 @@ def synthesize_speech(config: Any, text: str) -> Optional[Tuple[bytes, int]]:
     return None
 
 
+def speaks_after_reply(config: Any) -> bool:
+    """True when the voice should wait for the whole reply before speaking.
+
+    Default: only for ``xtts`` (it runs on the same small GPU as the LLM).
+    Override with OPENJARVIS_VOZ_AL_TERMINAR=1/0.
+    """
+    env = os.environ.get("OPENJARVIS_VOZ_AL_TERMINAR")
+    if env in ("0", "1"):
+        return env == "1"
+    speech = getattr(config, "speech", None)
+    return (getattr(speech, "tts_backend", "") or "") == "xtts"
+
+
 class SentenceSpeaker:
     """Speaks sentences in order, synthesizing the next one while one plays."""
 
@@ -475,6 +488,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     config = load_config()
     client = KasandraClient(config)
     speaker = SentenceSpeaker(config)
+    speak_after_reply = speaks_after_reply(config)
 
     app = QApplication(sys.argv[:1])
     view = QWebEngineView()
@@ -498,7 +512,16 @@ def main(argv: Optional[list[str]] = None) -> int:
                     last[0] = now
                     bridge.js.emit(f"window.kasiReply({json.dumps(partial)})")
 
-            reply = client.ask_stream(text, status, speaker.say, show)
+            if speak_after_reply:
+                # Local GPU voices (XTTS) share the card with the LLM: wait
+                # until the reply is written, then speak, so the voice isn't
+                # starved mid-answer.
+                pending: List[str] = []
+                reply = client.ask_stream(text, status, pending.append, show)
+                for sentence in pending:
+                    speaker.say(sentence)
+            else:
+                reply = client.ask_stream(text, status, speaker.say, show)
             bridge.js.emit(f"window.kasiReply({json.dumps(reply)})")
 
         threading.Thread(target=work, name="kasandra-ask", daemon=True).start()

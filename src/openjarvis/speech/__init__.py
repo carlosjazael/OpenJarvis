@@ -21,6 +21,7 @@ for _mod in (
     "elevenlabs_tts",
     "kokoro_tts",
     "openai_tts",
+    "xtts_http",
 ):
     try:
         importlib.import_module(f".{_mod}", __name__)
