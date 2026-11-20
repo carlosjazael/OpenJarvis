@@ -48,8 +48,11 @@ def _synthesize(body: dict) -> bytes:
     if body.get("temperature") is not None:
         kwargs["temperature"] = float(body["temperature"])
     if body.get("speaker_wav"):
-        if not str(body["speaker_wav"]).lower().endswith(".wav"):
-            raise ValueError("speaker_wav must be a .wav file")
+        ref = str(body["speaker_wav"])
+        # Local .wav files only: a \\server\share path would make Windows
+        # try to log in to that server.
+        if not ref.lower().endswith(".wav") or ref.startswith(("\\\\", "//")):
+            raise ValueError("speaker_wav must be a local .wav file")
         kwargs["speaker_wav"] = body["speaker_wav"]
     else:
         kwargs["speaker"] = body.get("speaker") or "Tanja Adelina"

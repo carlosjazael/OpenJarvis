@@ -77,7 +77,7 @@ _ON_GOOGLE = re.compile(
 _OPEN_NAME = re.compile(
     rf"\b{_VERB}\s+(?:(?:la|el|mi)\s+)?"
     r"(?:(?:p[aá]gina|sitio|web|portal)\s+(?:web\s+)?(?:de(?:l)?\s+)?)?"
-    r"(?:(?:la|el|mi)\s+)?(.+?)\s*[.!?]*\s*$",
+    r"(?:(?:la|el|mi)\s+)?(.+?)[\s.!?]*$",
     re.IGNORECASE,
 )
 _EXPLICIT_WEB = re.compile(r"\b(p[aá]gina|sitio|web|portal)\b", re.IGNORECASE)
@@ -91,7 +91,9 @@ def _plain(text: str) -> str:
 def normalize_url(raw: str) -> Optional[str]:
     """Return an ``http(s)`` URL for *raw*, or None if it isn't a web address."""
     raw = raw.strip().rstrip(".,;:!?)\"'")
-    if not raw:
+    # No spaces, quotes or control characters: they could smuggle extra
+    # arguments into the browser's command line.
+    if not raw or len(raw) > 2000 or re.search(r"[\s\"<>\x00-\x1f\x7f]", raw):
         return None
     if re.match(r"^[a-z][a-z0-9+.-]*:(?!\d)", raw, re.IGNORECASE):
         # Has a scheme: only http(s) is allowed (no file:, javascript:...).
@@ -109,6 +111,8 @@ def normalize_url(raw: str) -> Optional[str]:
 def detect_open_request(text: str) -> Optional[Tuple[str, str]]:
     """Return ``(url, label)`` when *text* asks to open a web page, else None."""
     text = (text or "").strip()
+    if len(text) > 300:
+        return None
     if not text or not re.search(rf"\b{_VERB}\b", _plain(text), re.IGNORECASE):
         if not _ON_YOUTUBE.search(text):
             return None

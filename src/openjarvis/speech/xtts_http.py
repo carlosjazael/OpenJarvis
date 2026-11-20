@@ -26,8 +26,22 @@ _DEFAULT_VOICE_ID = "Tanja Adelina"
 _DEFAULT_URL = "http://127.0.0.1:47812"
 
 
+_MAX_WAV_BYTES = 50 * 1024 * 1024
+
+
 def _base_url() -> str:
-    return os.environ.get("OPENJARVIS_XTTS_URL", _DEFAULT_URL).rstrip("/")
+    """The voice server URL; only a plain http server on this PC is accepted."""
+    from urllib.parse import urlsplit
+
+    url = os.environ.get("OPENJARVIS_XTTS_URL", _DEFAULT_URL).rstrip("/")
+    parts = urlsplit(url)
+    if parts.scheme != "http" or parts.hostname not in (
+        "127.0.0.1",
+        "localhost",
+        "::1",
+    ):
+        return _DEFAULT_URL
+    return url
 
 
 def _timeout() -> float:
@@ -87,7 +101,10 @@ class XTTSHttpBackend(TTSBackend):
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=_timeout()) as resp:
-            wav = resp.read()
+            ctype = resp.headers.get("Content-Type", "")
+            wav = resp.read(_MAX_WAV_BYTES + 1)
+        if not ctype.startswith("audio/wav") or len(wav) > _MAX_WAV_BYTES:
+            raise RuntimeError("Respuesta inesperada del servidor de voz")
         sample_rate = 24000
         duration = 0.0
         try:

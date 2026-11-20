@@ -675,7 +675,13 @@ def _handle_agent(
             ctx.conversation.add(m)
 
     # Last message is the input
-    input_text = req.messages[-1].content if req.messages else ""
+    # Only a real user turn can be the input (PC actions read it).
+    last = req.messages[-1] if req.messages else None
+    input_text = (
+        last.content
+        if last is not None and getattr(last, "role", "user") == "user"
+        else ""
+    )
 
     # Override agent model for this request if the caller specified one.
     # Locked for the full override-run-restore cycle (#759): only the

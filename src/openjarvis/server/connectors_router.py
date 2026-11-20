@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 import threading
 from functools import wraps
@@ -817,7 +818,7 @@ def create_connectors_router():
                 content=(
                     f"<html><body style='{_style}'>"
                     f"<h2 style='color:#ef4444'>Authorization Failed</h2>"
-                    f"<p>{error}</p>"
+                    f"<p>{html.escape(str(error))}</p>"
                     "<script>setTimeout(()=>window.close(),3000)</script>"
                     "</body></html>"
                 ),
@@ -850,7 +851,7 @@ def create_connectors_router():
                 content=(
                     f"<html><body style='{_style}'>"
                     f"<h2 style='color:#ef4444'>Token Exchange Failed</h2>"
-                    f"<p>{exc}</p>"
+                    f"<p>{html.escape(str(exc))}</p>"
                     "</body></html>"
                 ),
                 status_code=500,

@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
@@ -57,26 +55,43 @@ def blocked_reason(
     return None
 
 
-class LocalGuardMiddleware(BaseHTTPMiddleware):
-    """Refuse browser requests from other web sites (see module docstring)."""
+class LocalGuardMiddleware:
+    """Refuse browser requests from other web sites (see module docstring).
+
+    Plain ASGI so it also guards WebSocket upgrades, which Starlette's
+    ``BaseHTTPMiddleware`` never sees.
+    """
 
     def __init__(self, app, allowed_origins=(), local_only: bool = True) -> None:  # noqa: ANN001
-        super().__init__(app)
+        self.app = app
         self._origins = list(allowed_origins or [])
         self._local_only = local_only
 
-    async def dispatch(self, request: Request, call_next):  # noqa: ANN001
+    async def __call__(self, scope, receive, send):  # noqa: ANN001
+        if scope.get("type") not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            k.decode("latin-1").lower(): v.decode("latin-1")
+            for k, v in scope.get("headers") or []
+        }
         reason = blocked_reason(
-            method=request.method,
-            host=request.headers.get("host", ""),
-            origin=request.headers.get("origin"),
-            sec_fetch_site=request.headers.get("sec-fetch-site"),
+            # A WebSocket can push data both ways: treat it like a POST.
+            method=scope.get("method", "GET") if scope["type"] == "http" else "POST",
+            host=headers.get("host", ""),
+            origin=headers.get("origin"),
+            sec_fetch_site=headers.get("sec-fetch-site"),
             allowed_origins=self._origins,
             local_only=self._local_only,
         )
-        if reason:
-            return JSONResponse({"detail": f"Forbidden: {reason}"}, status_code=403)
-        return await call_next(request)
+        if reason is None:
+            await self.app(scope, receive, send)
+            return
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        response = JSONResponse({"detail": f"Forbidden: {reason}"}, status_code=403)
+        await response(scope, receive, send)
 
 
 def is_loopback(host: str) -> bool:

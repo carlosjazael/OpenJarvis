@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.testclient import TestClient
 
 from openjarvis.server.local_guard import (
@@ -103,3 +103,33 @@ def test_sec_fetch_site(method, site, blocked):
 def test_is_loopback():
     assert is_loopback("127.0.0.1") and is_loopback("localhost") and is_loopback("::1")
     assert not is_loopback("0.0.0.0")
+
+
+def test_websocket_from_other_site_is_refused():
+    from starlette.websockets import WebSocketDisconnect
+
+    app = FastAPI()
+
+    @app.websocket("/ws")
+    async def ws(socket: WebSocket):
+        await socket.accept()
+        await socket.send_text("hola")
+        await socket.close()
+
+    app.add_middleware(LocalGuardMiddleware, allowed_origins=[], local_only=True)
+    client = TestClient(app, base_url="http://127.0.0.1:8000")
+    local = {"Host": "127.0.0.1:8000"}
+    with client.websocket_connect("/ws", headers=local) as s:
+        assert s.receive_text() == "hola"
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect(
+            "/ws", headers={"Origin": "https://evil.example"}
+        ) as s:
+            s.receive_text()
+
+
+def test_oauth_error_page_escapes_html():
+    import html
+
+    payload = "<script>alert(1)</script>"
+    assert "<script>" not in html.escape(payload)
