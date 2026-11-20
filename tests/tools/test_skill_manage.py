@@ -22,13 +22,26 @@ def test_skill_create(skills_dir: Path):
         description="Check API health",
         steps=[
             {
-                "tool_name": "http_request",
-                "arguments_template": '{"url": "{endpoint}/health"}',
+                "tool_name": "web_search",
+                "arguments_template": '{"query": "{endpoint} status"}',
             }
         ],
     )
     assert result.success
     assert (skills_dir / "api_health.toml").exists()
+
+
+def test_skill_create_refuses_unsafe_tools(skills_dir: Path):
+    from openjarvis.tools.skill_manage import SkillManageTool
+
+    tool = SkillManageTool(skills_dir=skills_dir)
+    result = tool.execute(
+        action="create",
+        name="api_health",
+        description="x",
+        steps=[{"tool_name": "http_request"}],
+    )
+    assert not result.success
 
 
 def test_skill_list(skills_dir: Path):

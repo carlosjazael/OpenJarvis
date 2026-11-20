@@ -22,7 +22,9 @@ import io
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
+MAX_TEXT_CHARS = 2000
 MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 
 _tts = None
@@ -40,20 +42,26 @@ def _synthesize(body: dict) -> bytes:
     import numpy as np
     import soundfile as sf
 
+    text = str(body["text"])
+    if not text.strip() or len(text) > MAX_TEXT_CHARS:
+        raise ValueError(f"text must be 1-{MAX_TEXT_CHARS} characters")
     kwargs = {
-        "text": body["text"],
-        "language": body.get("language", "es"),
-        "speed": float(body.get("speed", 1.0)),
+        "text": text,
+        "language": str(body.get("language", "es"))[:5],
+        "speed": min(max(float(body.get("speed", 1.0)), 0.5), 2.0),
     }
     if body.get("temperature") is not None:
-        kwargs["temperature"] = float(body["temperature"])
+        kwargs["temperature"] = min(max(float(body["temperature"]), 0.1), 1.5)
     if body.get("speaker_wav"):
         ref = str(body["speaker_wav"])
-        # Local .wav files only: a \\server\share path would make Windows
-        # try to log in to that server.
+        # Local .wav files in the user's own folders only: a \\server\share
+        # path would make Windows try to log in to that server.
         if not ref.lower().endswith(".wav") or ref.startswith(("\\\\", "//")):
             raise ValueError("speaker_wav must be a local .wav file")
-        kwargs["speaker_wav"] = body["speaker_wav"]
+        resolved = Path(ref).expanduser().resolve()
+        if not resolved.is_relative_to(Path.home().resolve()) or not resolved.is_file():
+            raise ValueError("speaker_wav must be a .wav inside your user folder")
+        kwargs["speaker_wav"] = str(resolved)
     else:
         kwargs["speaker"] = body.get("speaker") or "Tanja Adelina"
     with _lock:  # one GPU synthesis at a time

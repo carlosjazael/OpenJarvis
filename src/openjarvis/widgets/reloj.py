@@ -196,6 +196,23 @@ def extract_reply(response: dict) -> str:
     return trim_unfinished(content)
 
 
+def api_key() -> str:
+    """The server's API key: env OPENJARVIS_API_KEY, else [server.auth]."""
+    key = os.environ.get("OPENJARVIS_API_KEY", "")
+    if key:
+        return key
+    try:
+        import tomllib
+
+        from openjarvis.core.paths import get_config_dir
+
+        with open(get_config_dir() / "config.toml", "rb") as f:
+            raw = tomllib.load(f)
+        return str(raw.get("server", {}).get("auth", {}).get("api_key", "") or "")
+    except Exception:
+        return ""
+
+
 class KasandraClient:
     """Talks to the local OpenJarvis API server, starting it when needed."""
 
@@ -217,7 +234,7 @@ class KasandraClient:
 
     def _headers(self) -> dict:
         headers = {"Content-Type": "application/json"}
-        key = os.environ.get("OPENJARVIS_API_KEY", "")
+        key = api_key()
         if key:
             headers["Authorization"] = f"Bearer {key}"
         return headers

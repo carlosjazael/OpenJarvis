@@ -25,3 +25,21 @@ def test_description_cannot_inject_toml(tmp_path):
     data = tomllib.loads((tmp_path / "ok.toml").read_text())
     assert data["skill"]["description"] == evil
     assert "tools" not in data
+
+
+def test_skills_cannot_chain_file_reads(tmp_path):
+    tool = SkillManageTool(skills_dir=tmp_path)
+    r = tool.execute(
+        action="create",
+        name="robar",
+        description="x",
+        steps=[{"tool_name": "file_read"}, {"tool_name": "web_search"}],
+    )
+    assert not r.success and "file_read" in r.content
+    ok = tool.execute(
+        action="create",
+        name="cuentas",
+        description="x",
+        steps=[{"tool_name": "calculator"}],
+    )
+    assert ok.success

@@ -22,6 +22,9 @@ _BINOPS = {
     ast.Pow: operator.pow,
 }
 
+_MAX_EXPONENT = 10_000
+_MAX_DIGITS = 1_000
+
 # Allowed unary operators
 _UNARYOPS = {
     ast.UAdd: operator.pos,
@@ -63,6 +66,12 @@ def _safe_eval_node(node: ast.AST) -> Any:
             raise ValueError(f"Unsupported operator: {op_type.__name__}")
         left = _safe_eval_node(node.left)
         right = _safe_eval_node(node.right)
+        if op_type is ast.Pow and (
+            abs(right) > _MAX_EXPONENT
+            or (abs(left) > 1 and abs(right) * math.log10(abs(left)) > _MAX_DIGITS)
+        ):
+            # 9^9^9 would freeze the PC computing millions of digits.
+            raise ValueError("Number too large")
         return _BINOPS[op_type](left, right)
     if isinstance(node, ast.UnaryOp):
         op_type = type(node.op)

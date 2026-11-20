@@ -1151,6 +1151,9 @@ class AgentConfig:
     open_web: bool = False
     # Open programs and files on this PC when asked ("abre Excel").
     open_local: bool = False
+    # Only change memory/skills when the user asks in that message, and never
+    # after reading a web page or file in the same turn (prompt injection).
+    memory_guard: bool = False
     default_system_prompt: str = (
         "Eres Kasandra (de cariño, Kasi), una asistente personal de IA que "
         "funciona localmente en la computadora del usuario. No eres un "
