@@ -817,6 +817,9 @@ def serve(
         api_key=api_key,
         webhook_config=webhook_config,
         cors_origins=cors_origins,
+        local_only=__import__(
+            "openjarvis.server.local_guard", fromlist=["is_loopback"]
+        ).is_loopback(bind_host),
     )
 
     console.print(

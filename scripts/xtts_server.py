@@ -48,6 +48,8 @@ def _synthesize(body: dict) -> bytes:
     if body.get("temperature") is not None:
         kwargs["temperature"] = float(body["temperature"])
     if body.get("speaker_wav"):
+        if not str(body["speaker_wav"]).lower().endswith(".wav"):
+            raise ValueError("speaker_wav must be a .wav file")
         kwargs["speaker_wav"] = body["speaker_wav"]
     else:
         kwargs["speaker"] = body.get("speaker") or "Tanja Adelina"
@@ -58,7 +60,32 @@ def _synthesize(body: dict) -> bytes:
     return out.getvalue()
 
 
+_LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+_MAX_BODY = 64 * 1024
+
+
+def _host_name(host: str) -> str:
+    host = (host or "").strip().lower()
+    if host.startswith("["):
+        return host[1:].split("]", 1)[0]
+    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+
+
 class Handler(BaseHTTPRequestHandler):
+    def _refused(self) -> bool:
+        """Only local programs may use the voice, never a web page."""
+        bad = (
+            self.headers.get("Origin")
+            or (self.headers.get("Sec-Fetch-Site") or "").lower() == "cross-site"
+            or (
+                _host_name(self.server.server_address[0]) in _LOOPBACK
+                and _host_name(self.headers.get("Host", "")) not in _LOOPBACK
+            )
+        )
+        if bad:
+            self._send(403, b"forbidden", "text/plain")
+        return bool(bad)
+
     def _send(self, code: int, data: bytes, ctype: str) -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -67,6 +94,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self) -> None:  # noqa: N802
+        if self._refused():
+            return
         if self.path == "/health":
             ready = _tts is not None
             status = (200, b"ok") if ready else (503, b"loading")
@@ -79,11 +108,16 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, b"", "text/plain")
 
     def do_POST(self) -> None:  # noqa: N802
+        if self._refused():
+            return
         if self.path != "/tts" or _tts is None:
             self._send(404 if self.path != "/tts" else 503, b"", "text/plain")
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
+            if length > _MAX_BODY:
+                self._send(413, b"too large", "text/plain")
+                return
             body = json.loads(self.rfile.read(length) or b"{}")
             self._send(200, _synthesize(body), "audio/wav")
         except Exception as exc:  # report, keep serving
