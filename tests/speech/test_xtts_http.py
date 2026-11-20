@@ -32,8 +32,11 @@ def test_synthesize_against_fake_server(monkeypatch):
 
     class H(BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802
-            seen.update(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            seen.update(
+                json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            )
             self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
             self.send_header("Content-Length", str(len(wav)))
             self.end_headers()
             self.wfile.write(wav)
@@ -79,3 +82,12 @@ def test_timeout_is_long_and_configurable(monkeypatch):
     assert xtts_http._timeout() == 600
     monkeypatch.setenv("OPENJARVIS_XTTS_TIMEOUT", "300")
     assert xtts_http._timeout() == 300
+
+
+def test_voice_url_must_be_local(monkeypatch):
+    from openjarvis.speech import xtts_http
+
+    monkeypatch.setenv("OPENJARVIS_XTTS_URL", "https://evil.example/tts")
+    assert xtts_http._base_url() == "http://127.0.0.1:47812"
+    monkeypatch.setenv("OPENJARVIS_XTTS_URL", "http://localhost:5000/")
+    assert xtts_http._base_url() == "http://localhost:5000"

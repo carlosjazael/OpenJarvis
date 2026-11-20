@@ -230,3 +230,28 @@ def test_other_voice_only_when_chosen_one_is_not_running(monkeypatch):
         b"wav-edge_tts",
         24000,
     )
+
+
+def test_clock_trusts_only_its_own_page():
+    from openjarvis.widgets.reloj import is_trusted_page
+
+    page = "file:///C:/OpenJarvis/src/openjarvis/widgets/reloj.html"
+    assert is_trusted_page(page + "?subs=1", page)
+    assert is_trusted_page(page + "#x", page + "?demo=1")
+    assert not is_trusted_page("https://evil.example/", page)
+    assert not is_trusted_page("file:///C:/Users/x/Downloads/evil.html", page)
+    assert not is_trusted_page("", page)
+
+
+def test_udp_flood_cannot_freeze_the_clock():
+    from openjarvis.widgets import reloj
+
+    class Flood:
+        calls = 0
+
+        def recvfrom(self, n):
+            Flood.calls += 1
+            return b"junk", None
+
+    reloj.drain(Flood())
+    assert Flood.calls == reloj.MAX_PACKETS_PER_POLL

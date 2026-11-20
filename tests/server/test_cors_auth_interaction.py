@@ -170,5 +170,6 @@ class TestCorsPreflightWithApiKey:
         client = TestClient(app)
 
         resp = client.get("/v1/models", headers={"Origin": "https://evil.example"})
-        assert resp.status_code == 401
+        # Refused by LocalGuardMiddleware before auth even runs.
+        assert resp.status_code == 403
         assert "access-control-allow-origin" not in resp.headers

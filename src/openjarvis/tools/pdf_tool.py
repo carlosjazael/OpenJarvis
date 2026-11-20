@@ -114,6 +114,22 @@ class PDFExtractTool(BaseTool):
                 success=False,
             )
 
+        from openjarvis.tools._paths import resolve_allowed_dirs
+
+        try:
+            roots = [Path(d).expanduser().resolve() for d in resolve_allowed_dirs(None)]
+        except Exception:
+            roots = []
+        resolved = path.expanduser().resolve()
+        if roots and not any(
+            resolved == r or resolved.is_relative_to(r) for r in roots
+        ):
+            return ToolResult(
+                tool_name="pdf_extract",
+                content=f"Access denied: {file_path} is outside the allowed folders.",
+                success=False,
+            )
+
         if not path.exists():
             return ToolResult(
                 tool_name="pdf_extract",

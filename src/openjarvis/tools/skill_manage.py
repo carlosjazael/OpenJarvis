@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 from openjarvis.core.paths import get_config_dir
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
+
+_SAFE_NAME = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
 @ToolRegistry.register("skill_manage")
@@ -73,6 +77,26 @@ class SkillManageTool(BaseTool):
             content=f"Unknown action: {action}",
         )
 
+    def _skill_path(self, name: str) -> Optional[Path]:
+        """``<skills_dir>/<name>.toml`` for a safe *name*, else None.
+
+        Names are plain identifiers, so a skill can never be written, read or
+        deleted outside the skills folder (e.g. ``../config``).
+        """
+        if not _SAFE_NAME.fullmatch(name or ""):
+            return None
+        path = (self._skills_dir / f"{name}.toml").resolve()
+        if path.parent != self._skills_dir.resolve():
+            return None
+        return path
+
+    def _bad_name(self, name: str) -> ToolResult:
+        return ToolResult(
+            tool_name=self.spec.name,
+            success=False,
+            content=(f"Invalid skill name: {name!r} (use letters, numbers, - or _)."),
+        )
+
     def _create(self, name: str, description: str, steps: List[dict]) -> ToolResult:
         if not name:
             return ToolResult(
@@ -81,20 +105,25 @@ class SkillManageTool(BaseTool):
                 content="Skill name is required.",
             )
         self._skills_dir.mkdir(parents=True, exist_ok=True)
-        path = self._skills_dir / f"{name}.toml"
+        path = self._skill_path(name)
+        if path is None:
+            return self._bad_name(name)
+        # json.dumps gives a valid, fully escaped TOML basic string, so a
+        # description can't inject new TOML tables or keys.
         lines = [
             "[skill]",
-            f'name = "{name}"',
-            f'description = "{description}"',
+            f"name = {json.dumps(name)}",
+            f"description = {json.dumps(str(description or ''))}",
             "",
         ]
         for step in steps:
             lines.append("[[skill.steps]]")
-            lines.append(f'tool_name = "{step.get("tool_name", "")}"')
+            lines.append(f"tool_name = {json.dumps(str(step.get('tool_name', '')))}")
             if "arguments_template" in step:
-                lines.append(f"arguments_template = '{step['arguments_template']}'")
+                template = str(step["arguments_template"])
+                lines.append(f"arguments_template = {json.dumps(template)}")
             if "output_key" in step:
-                lines.append(f'output_key = "{step["output_key"]}"')
+                lines.append(f"output_key = {json.dumps(str(step['output_key']))}")
             lines.append("")
         path.write_text("\n".join(lines))
         return ToolResult(
@@ -126,7 +155,9 @@ class SkillManageTool(BaseTool):
         )
 
     def _load(self, name: str) -> ToolResult:
-        path = self._skills_dir / f"{name}.toml"
+        path = self._skill_path(name)
+        if path is None:
+            return self._bad_name(name)
         if not path.exists():
             return ToolResult(
                 tool_name=self.spec.name,
@@ -140,7 +171,9 @@ class SkillManageTool(BaseTool):
         )
 
     def _delete(self, name: str) -> ToolResult:
-        path = self._skills_dir / f"{name}.toml"
+        path = self._skill_path(name)
+        if path is None:
+            return self._bad_name(name)
         if not path.exists():
             return ToolResult(
                 tool_name=self.spec.name,

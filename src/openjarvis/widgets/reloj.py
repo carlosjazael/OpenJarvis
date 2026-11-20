@@ -78,7 +78,7 @@ def drain(sock: socket.socket) -> Optional[Tuple[str, Any]]:
     sentences flow without flicker.
     """
     latest = None
-    while True:
+    for _ in range(MAX_PACKETS_PER_POLL):  # a flood can't freeze the clock
         try:
             packet, _ = sock.recvfrom(4096)
         except (BlockingIOError, InterruptedError):
@@ -89,6 +89,15 @@ def drain(sock: socket.socket) -> Optional[Tuple[str, Any]]:
         if parsed is not None:
             latest = parsed
     return latest
+
+
+MAX_PACKETS_PER_POLL = 64
+
+
+def is_trusted_page(url: str, page_url: str) -> bool:
+    """True only for the clock's own reloj.html (any ?query/#hash)."""
+    base = (url or "").split("#", 1)[0].split("?", 1)[0]
+    return bool(base) and base == page_url.split("?", 1)[0]
 
 
 def js_call(event: Tuple[str, Any]) -> str:
@@ -219,9 +228,14 @@ class KasandraClient:
         if self._server is None or self._server.poll() is not None:
             on_status("Iniciando el núcleo de Kasandra…")
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            # -P / cwd=home: never import a planted "openjarvis" package from
+            # whatever folder the clock happened to start in.
+            safe = ["-P"] if sys.version_info >= (3, 11) else []
             self._server = subprocess.Popen(
-                [sys.executable, "-c", "from openjarvis.cli import main; main()",
+                [sys.executable, *safe, "-c",
+                 "from openjarvis.cli import main; main()",
                  "serve", "--host", "127.0.0.1"],
+                cwd=str(Path.home()),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
@@ -544,13 +558,28 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         threading.Thread(target=work, name="kasandra-ask", daemon=True).start()
 
+    page_url = QUrl.fromLocalFile(str(HTML_PATH))
+
     class Page(QWebEnginePage):
+        def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # noqa: N802
+            # The clock only ever shows its own page: no links, drops or
+            # redirects to anything else.
+            return is_trusted_page(url.toString(), page_url.toString())
+
         def javaScriptConsoleMessage(self, level, message, line, source):  # noqa: N802
+            if not is_trusted_page(source, page_url.toString()):
+                return
             text = parse_send(message)
             if text is not None:
                 handle_text(text)
 
     view.setPage(Page(view))
+    view.setAcceptDrops(False)
+    for attr in (
+        QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls,
+        QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls,
+    ):
+        view.settings().setAttribute(attr, False)
     view.setWindowTitle("Kasandra")
     view.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
     view.setAttribute(Qt.WA_TranslucentBackground, True)

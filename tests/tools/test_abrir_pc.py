@@ -157,7 +157,7 @@ def test_index_never_lists_programs_or_scripts(tmp_path):
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "foto.jpg").write_text("x")
     names = {n for n, _p, _d in index_files([tmp_path])}
-    assert names == {"plano.dwg", "sub", "foto.jpg"}
+    assert names == {tmp_path.name, "plano.dwg", "sub", "foto.jpg"}
 
 
 def test_orchestrator_does_it_without_the_model(opened, monkeypatch):
@@ -173,3 +173,51 @@ def test_orchestrator_does_it_without_the_model(opened, monkeypatch):
     result = agent.run("pon Hotel California")
     assert "Hotel California" in result.content
     assert opened == [("web", "https://www.youtube.com/watch?v=abcdefghijk")]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "presupuesto.py",
+        "x.chm",
+        "a.xll",
+        "b.iso",
+        "c.lnk",
+        "d.url",
+        "e.exe.",
+        "f.pdf.exe",
+        "g.settingcontent-ms",
+        "h.library-ms",
+        "i.appinstaller",
+        "j.docm",
+    ],
+)
+def test_risky_files_are_never_openable(name):
+    assert not abrir_pc.is_openable_file(name)
+
+
+@pytest.mark.parametrize(
+    "name", ["plano.dwg", "Presupuesto.xlsx", "foto.JPG", "contrato.pdf"]
+)
+def test_documents_are_openable(name):
+    assert abrir_pc.is_openable_file(name)
+
+
+def test_start_file_refuses_programs_even_if_asked(tmp_path):
+    bad = tmp_path / "presupuesto.py"
+    bad.write_text("x")
+    with pytest.raises(PermissionError):
+        abrir_pc._start_file(str(bad))
+
+
+def test_folder_name_with_filler_words(opened):
+    run("abre la carpeta de facturas")
+    assert opened[-1] == ("file", r"C:\Docs\Facturas")
+
+
+def test_long_messages_are_ignored_quickly():
+    import time
+
+    start = time.monotonic()
+    assert resolve_request("abre x" + " " * 5000 + "x", FakeCatalog()) is None
+    assert time.monotonic() - start < 1

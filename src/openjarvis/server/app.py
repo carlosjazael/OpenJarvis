@@ -180,6 +180,7 @@ def create_app(
     api_key: str = "",
     webhook_config: dict | None = None,
     cors_origins: list[str] | None = None,
+    local_only: bool = False,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -510,6 +511,14 @@ def create_app(
             app.add_middleware(AuthMiddleware, api_key=api_key)
         except Exception as exc:
             logger.debug("Auth middleware init skipped: %s", exc)
+
+    # Refuse requests from other web sites (CSRF / DNS rebinding), so a web
+    # page can't drive the assistant through the user's browser.
+    from openjarvis.server.local_guard import LocalGuardMiddleware
+
+    app.add_middleware(
+        LocalGuardMiddleware, allowed_origins=_origins, local_only=local_only
+    )
 
     # Register CORS last so it is the outermost middleware. In addition to
     # handling preflights, this ensures browser clients can read 401 responses

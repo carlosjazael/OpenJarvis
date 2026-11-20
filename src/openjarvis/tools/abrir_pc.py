@@ -44,7 +44,17 @@ from openjarvis.tools.abrir_web import (
 
 logger = logging.getLogger(__name__)
 
-# Never launched from a file search, whatever their name.
+# The only kinds of files a voice request may open: documents, images, media,
+# CAD drawings and archives.  Anything else (scripts, installers, shortcuts,
+# disk images, help files...) is never opened, whatever its name.
+OPENABLE_EXTENSIONS = frozenset(
+    ".pdf .txt .rtf .md .csv .doc .docx .xls .xlsx .ppt .pptx .odt .ods .odp "
+    ".jpg .jpeg .png .gif .bmp .webp .heic .tif .tiff .svg "
+    ".mp3 .wav .m4a .flac .ogg .aac .wma .mp4 .mkv .avi .mov .wmv .webm "
+    ".dwg .dxf .dwf .skp .rvt .kmz .kml .zip .rar .7z".split()
+)
+
+# Kept as a second, independent check right before opening.
 UNSAFE_EXTENSIONS = frozenset(
     ".exe .msi .msp .bat .cmd .com .ps1 .psm1 .vbs .vbe .js .jse .wsf .wsh .scr "
     ".pif .reg .lnk .url .hta .cpl .jar .appref-ms .dll .sys .inf .gadget "
@@ -59,6 +69,8 @@ _PROGRAM_NOISE = re.compile(
     r"release notes|license|licencia)",
     re.IGNORECASE,
 )
+MAX_REQUEST_CHARS = 200
+
 _STOPWORDS = frozenset(
     "de del la el los las mi mis un una unos unas en por favor kasi oye que me "
     "a al y o porfa porfavor ahora ya tu su".split()
@@ -211,10 +223,10 @@ def read_bookmarks() -> List[Tuple[str, str]]:
             "BraveSoftware/Brave-Browser",
         ):
             for f in glob(str(local / browser / "User Data" / "*" / "Bookmarks")):
-                out.extend(_chromium_bookmarks(Path(f)))
+                out.extend(_safely(_chromium_bookmarks, Path(f)))
     if roaming:
         for f in glob(str(roaming / "Mozilla/Firefox/Profiles/*/places.sqlite")):
-            out.extend(_firefox_bookmarks(Path(f)))
+            out.extend(_safely(_firefox_bookmarks, Path(f)))
     seen: set = set()
     unique = []
     for title, url in out:
@@ -222,6 +234,15 @@ def read_bookmarks() -> List[Tuple[str, str]]:
             seen.add((title, url))
             unique.append((title, url))
     return unique
+
+
+def _safely(reader: Callable[[Path], list], path: Path) -> list:
+    """One broken or empty browser profile must not hide all the others."""
+    try:
+        return reader(path)
+    except Exception:
+        logger.info("No se pudieron leer favoritos de %s", path, exc_info=True)
+        return []
 
 
 def _chromium_bookmarks(path: Path) -> List[Tuple[str, str]]:
@@ -257,27 +278,30 @@ def _firefox_bookmarks(path: Path) -> List[Tuple[str, str]]:
     return [(t, u) for t, u in rows]
 
 
-def _start_menu_dirs() -> List[Path]:
+def _start_menu_dirs() -> List[Tuple[Path, bool]]:
+    """``(folder, recursive)``: the Start menu, and the Desktop's top level."""
     dirs = []
-    for env, sub in (
-        ("APPDATA", "Microsoft/Windows/Start Menu/Programs"),
-        ("PROGRAMDATA", "Microsoft/Windows/Start Menu/Programs"),
-        ("USERPROFILE", "Desktop"),
-        ("USERPROFILE", "OneDrive/Desktop"),
-        ("USERPROFILE", "OneDrive/Escritorio"),
-        ("PUBLIC", "Desktop"),
+    for env, sub, recursive in (
+        ("APPDATA", "Microsoft/Windows/Start Menu/Programs", True),
+        ("PROGRAMDATA", "Microsoft/Windows/Start Menu/Programs", True),
+        ("USERPROFILE", "Desktop", False),
+        ("USERPROFILE", "OneDrive/Desktop", False),
+        ("USERPROFILE", "OneDrive/Escritorio", False),
+        ("PUBLIC", "Desktop", False),
     ):
         base = _env_path(env)
         if base and (base / sub).is_dir():
-            dirs.append(base / sub)
+            dirs.append((base / sub, recursive))
     return dirs
 
 
 def read_programs() -> List[Program]:
     """Shortcuts in the Start menu and Desktop, plus Windows' installed apps."""
     programs: dict = {}
-    for d in _start_menu_dirs():
-        for pattern in ("**/*.lnk", "**/*.url", "**/*.appref-ms"):
+    for d, recursive in _start_menu_dirs():
+        # Only .lnk program shortcuts (no .url files: they can point anywhere),
+        # and not inside random folders unzipped on the Desktop.
+        for pattern in ("**/*.lnk",) if recursive else ("*.lnk",):
             for f in d.glob(pattern):
                 name = f.stem
                 if not _PROGRAM_NOISE.search(name):
@@ -344,12 +368,33 @@ def file_roots() -> List[Path]:
     return unique
 
 
+_FOLDER_ALIASES = {
+    "downloads": "Descargas",
+    "documents": "Documentos",
+    "desktop": "Escritorio",
+    "pictures": "Imágenes",
+    "music": "Música",
+    "videos": "Videos",
+}
+
+
+def is_openable_file(name: str) -> bool:
+    """True for a document/media file; trailing dots or spaces don't count."""
+    suffix = Path(name.rstrip(" .")).suffix.lower()
+    return suffix in OPENABLE_EXTENSIONS and suffix not in UNSAFE_EXTENSIONS
+
+
 def index_files(
     roots: Optional[List[Path]] = None, max_depth: int = 6, limit: int = 80_000
 ) -> List[Tuple[str, str, bool]]:
     """``(name, path, is_dir)`` for files and folders under the user's folders."""
     out: List[Tuple[str, str, bool]] = []
     for root in roots if roots is not None else file_roots():
+        # The folders themselves too ("abre la carpeta de Descargas").
+        out.append((root.name, str(root), True))
+        alias = _FOLDER_ALIASES.get(root.name.lower())
+        if alias:
+            out.append((alias, str(root), True))
         base_depth = len(root.parts)
         for dirpath, dirnames, filenames in os.walk(root):
             depth = len(Path(dirpath).parts) - base_depth
@@ -363,7 +408,7 @@ def index_files(
             for d in dirnames:
                 out.append((d, os.path.join(dirpath, d), True))
             for f in filenames:
-                if Path(f).suffix.lower() not in UNSAFE_EXTENSIONS:
+                if is_openable_file(f):
                     out.append((f, os.path.join(dirpath, f), False))
             if len(out) >= limit:
                 return out
@@ -376,6 +421,8 @@ def index_files(
 
 
 def _start_file(path: str) -> bool:
+    if not os.path.isdir(path) and not is_openable_file(os.path.basename(path)):
+        raise PermissionError(f"Kasandra no abre este tipo de archivo: {path}")
     if sys.platform == "win32":
         os.startfile(path)  # type: ignore[attr-defined]  # noqa: S606
         return True
@@ -386,11 +433,14 @@ def _start_file(path: str) -> bool:
 
 def _start_program(program: Program) -> bool:
     if program.path:
-        return _start_file(program.path)
+        # Program shortcuts come only from the Start menu / Desktop listing.
+        if sys.platform == "win32":
+            os.startfile(program.path)  # type: ignore[attr-defined]  # noqa: S606
+            return True
+        return False
     if program.app_id and sys.platform == "win32":
-        subprocess.Popen(  # noqa: S603
-            ["explorer.exe", "shell:AppsFolder\\" + program.app_id]
-        )
+        # Store apps (Bloc de notas, Calculadora...) start through the shell.
+        os.startfile("shell:AppsFolder\\" + program.app_id)  # type: ignore[attr-defined]  # noqa: S606
         return True
     return False
 
@@ -479,10 +529,14 @@ def _file_action(matches: List[Tuple[float, str, object]]) -> PcAction:
 
 
 def _strip_words(text: str, pattern: re.Pattern) -> str:
-    text = pattern.sub(" ", text)
-    text = re.sub(r"^\s*(?:de|del|en|mis|mi|el|la|los|las)\s+", "", text.strip())
-    text = re.sub(r"\s+(?:de|del|en)\s*$", "", text)
-    return re.sub(r"\s+", " ", text).strip(" ,.")
+    text = re.sub(r"\s+", " ", pattern.sub(" ", text)).strip(" ,.")
+    filler = r"(?:de|del|en|mis|mi|el|la|los|las|tu|tus)"
+    while True:
+        cleaned = re.sub(rf"^{filler}\s+", "", text, flags=re.IGNORECASE)
+        cleaned = re.sub(rf"\s+{filler}$", "", cleaned, flags=re.IGNORECASE)
+        if cleaned == text:
+            return text
+        text = cleaned
 
 
 def resolve_request(
@@ -494,8 +548,8 @@ def resolve_request(
 ) -> Optional[PcAction]:
     """Return the action *text* asks for, or None when it isn't such a request."""
     text = (text or "").strip()
-    if not text:
-        return None
+    if not text or len(text) > MAX_REQUEST_CHARS:
+        return None  # real voice commands are short; also caps regex work
     catalog = catalog or _default_catalog()
 
     m = _PLAY.search(text)
