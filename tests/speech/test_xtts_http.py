@@ -70,3 +70,12 @@ def test_voice_id_tuning_suffix():
     )
     assert body["speaker"] == "Tanja Adelina"
     assert body["speed"] == 0.9 and body["temperature"] == 0.85
+
+
+def test_timeout_is_long_and_configurable(monkeypatch):
+    from openjarvis.speech import xtts_http
+
+    monkeypatch.delenv("OPENJARVIS_XTTS_TIMEOUT", raising=False)
+    assert xtts_http._timeout() == 600
+    monkeypatch.setenv("OPENJARVIS_XTTS_TIMEOUT", "300")
+    assert xtts_http._timeout() == 300

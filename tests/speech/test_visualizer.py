@@ -161,3 +161,72 @@ def test_speaks_after_reply(monkeypatch):
     assert reloj.speaks_after_reply(xtts) and not reloj.speaks_after_reply(edge)
     monkeypatch.setenv("OPENJARVIS_VOZ_AL_TERMINAR", "0")
     assert not reloj.speaks_after_reply(xtts)
+
+
+class _FakeBackend:
+    def __init__(self, backend_id, fails=0):
+        self.backend_id = backend_id
+        self.fails = fails
+        self.calls = []
+
+    def synthesize(self, text, **kw):
+        from types import SimpleNamespace
+
+        self.calls.append(kw.get("voice_id"))
+        if self.fails > 0:
+            self.fails -= 1
+            raise TimeoutError("busy GPU")
+        return SimpleNamespace(
+            audio=b"wav-" + self.backend_id.encode(), sample_rate=24000
+        )
+
+
+def _speech_config(backend="xtts", voice="Nova Hogarth"):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        speech=SimpleNamespace(tts_backend=backend, voice_id=voice, voice_speed=1.0)
+    )
+
+
+def _patch_backends(monkeypatch, backends):
+    import openjarvis.speech._tts_discovery as disc
+
+    def fake_get(preferred="", *, attempted=None):
+        for b in backends:
+            if b.backend_id not in attempted:
+                attempted.add(b.backend_id)
+                return b
+        return None
+
+    monkeypatch.setattr(disc, "get_tts_backend", fake_get)
+
+
+def test_chosen_voice_retries_instead_of_switching(monkeypatch):
+    from openjarvis.widgets.reloj import synthesize_speech
+
+    xtts, edge = _FakeBackend("xtts", fails=1), _FakeBackend("edge_tts")
+    _patch_backends(monkeypatch, [xtts, edge])
+    assert synthesize_speech(_speech_config(), "Hola Carlos.") == (b"wav-xtts", 24000)
+    assert xtts.calls == ["Nova Hogarth", "Nova Hogarth"]
+    assert edge.calls == []
+
+
+def test_chosen_voice_never_swaps_mid_reply(monkeypatch):
+    from openjarvis.widgets.reloj import synthesize_speech
+
+    xtts, edge = _FakeBackend("xtts", fails=5), _FakeBackend("edge_tts")
+    _patch_backends(monkeypatch, [xtts, edge])
+    assert synthesize_speech(_speech_config(), "Hola Carlos.") is None
+    assert edge.calls == []
+
+
+def test_other_voice_only_when_chosen_one_is_not_running(monkeypatch):
+    from openjarvis.widgets.reloj import synthesize_speech
+
+    edge = _FakeBackend("edge_tts")
+    _patch_backends(monkeypatch, [edge])
+    assert synthesize_speech(_speech_config(), "Hola Carlos.") == (
+        b"wav-edge_tts",
+        24000,
+    )

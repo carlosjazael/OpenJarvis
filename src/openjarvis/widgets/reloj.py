@@ -24,6 +24,7 @@ Requires the ``reloj`` extra: ``uv sync --extra reloj``.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import socket
@@ -37,6 +38,8 @@ from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
 from openjarvis.speech.visualizer import N_BANDS, visualizer_port
+
+logger = logging.getLogger(__name__)
 
 SIZE = 480
 PANEL = 96  # must match PANEL in reloj.html
@@ -166,7 +169,7 @@ def iter_sse_text(lines: Any) -> Any:
 def trim_unfinished(text: str) -> str:
     """Cut a reply that hit the length cap back to its last full sentence."""
     text = text.rstrip()
-    if not text or text[-1] in ".!?…)\"»":
+    if not text or text[-1] in '.!?…)"»':
         return text
     cut = max(text.rfind(p) for p in (". ", "! ", "? ", "…", ".\n", "!\n", "?\n"))
     return text[: cut + 1].rstrip() if cut > len(text) // 3 else text
@@ -307,6 +310,9 @@ class KasandraClient:
             self._server.terminate()
 
 
+PREFERRED_VOICE_ATTEMPTS = 2
+
+
 def synthesize_speech(config: Any, text: str) -> Optional[Tuple[bytes, int]]:
     """Return ``(wav_bytes, sample_rate)`` for *text*, or None."""
     from openjarvis.speech._tts_discovery import (
@@ -321,19 +327,31 @@ def synthesize_speech(config: Any, text: str) -> Optional[Tuple[bytes, int]]:
     preferred, voice_id, speed = voice_preferences(config)
     tried: set[str] = set()
     while (backend := get_tts_backend(preferred, attempted=tried)) is not None:
-        voice = (
-            voice_id
-            if backend.backend_id == preferred
-            else default_voice_for(backend.backend_id)
-        )
+        is_preferred = backend.backend_id == preferred
+        voice = voice_id if is_preferred else default_voice_for(backend.backend_id)
         kwargs: dict = {"output_format": "wav", "speed": speed}
         if voice:
             kwargs["voice_id"] = voice
-        try:
-            result = backend.synthesize(spoken, **kwargs)
-        except Exception:
-            continue
-        return result.audio, result.sample_rate
+        # The chosen voice is up and running: never swap to another voice in
+        # the middle of a reply.  Retry it once, and skip the sentence if it
+        # still fails.  Other backends are only used when the chosen one is
+        # not running at all (e.g. its server did not start with Windows).
+        attempts = PREFERRED_VOICE_ATTEMPTS if is_preferred else 1
+        for attempt in range(attempts):
+            try:
+                result = backend.synthesize(spoken, **kwargs)
+            except Exception:
+                logger.warning(
+                    "La voz %s falló (intento %d de %d)",
+                    backend.backend_id,
+                    attempt + 1,
+                    attempts,
+                    exc_info=True,
+                )
+                continue
+            return result.audio, result.sample_rate
+        if is_preferred:
+            return None
     return None
 
 
