@@ -24,6 +24,7 @@ default_agent = "orchestrator"      # elige herramientas por su cuenta
 max_turns = 8
 context_from_memory = true
 mirror_tone = true                  # en cada respuesta copia el tono del último mensaje
+open_web = true                     # "abre YouTube", "abre sat.gob.mx": abre la página en tu navegador
 smart_tools = true                  # charla normal sin herramientas = respuesta en una sola llamada
 default_system_prompt = """
 Eres Kasandra (de cariño, Kasi), la asistente personal de IA del usuario. Funcionas

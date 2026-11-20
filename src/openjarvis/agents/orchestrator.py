@@ -220,6 +220,7 @@ class OrchestratorAgent(ToolUsingAgent):
         before_tool_call: Optional[Callable[[str, dict[str, Any]], bool]] = None,
         smart_tools: bool = False,
         mirror_tone: bool = False,
+        open_web: bool = False,
     ) -> None:
         super().__init__(
             engine,
@@ -242,6 +243,7 @@ class OrchestratorAgent(ToolUsingAgent):
         self._before_tool_call = before_tool_call
         self._smart_tools = smart_tools
         self._mirror_tone = mirror_tone
+        self._open_web = open_web
 
     def run(
         self,
@@ -532,6 +534,30 @@ class OrchestratorAgent(ToolUsingAgent):
     # Function-calling mode (original behaviour)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _open_requested_page(text: str) -> Optional[str]:
+        """Open the page *text* asks for, and return a note for the model."""
+        from openjarvis.tools.abrir_web import detect_open_request, open_url
+
+        found = detect_open_request(text)
+        if not found:
+            return None
+        url, label = found
+        try:
+            ok = open_url(url)
+        except Exception:
+            logger.warning("No se pudo abrir %s", url, exc_info=True)
+            ok = False
+        if ok:
+            return (
+                f"Ya abriste {label} ({url}) en el navegador del usuario. "
+                "Confírmaselo en una sola frase corta, sin leer la dirección."
+            )
+        return (
+            f"Intentaste abrir {url} en el navegador pero no se pudo. "
+            "Díselo al usuario en una frase corta."
+        )
+
     def _run_function_calling(
         self,
         input: str,
@@ -567,6 +593,11 @@ class OrchestratorAgent(ToolUsingAgent):
             )
             if not _OTHER_TOOL_HINTS.search(input):
                 openai_tools = []
+        web_note = self._open_requested_page(input) if self._open_web else None
+        if web_note:
+            # The page is opened here, in code; the model only confirms it.
+            messages.append(Message(role=Role.SYSTEM, content=web_note))
+            openai_tools = []
         if openai_tools and self._smart_tools and not needs_tools(input):
             # Plain chat: skip the tool schemas (≈1k tokens) and the
             # tool round-trip so small local models answer in one call.
