@@ -99,6 +99,7 @@ Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\confi
 | Voz más natural (de pago) | `tts_backend = "elevenlabs"` y `voice_id = "EXAVITQu4vr4xnSDxMaL"` |
 | Cambiarle el nombre o la personalidad | `[agent] system_prompt = """Te llamas …"""` |
 | Un modelo más listo | `[intelligence] default_model = "qwen3.5:9b"` |
+| Que abra páginas web ("abre YouTube", "pon X en YouTube", "abre sat.gob.mx") | `[agent] open_web = true` (solo direcciones http/https, en tu navegador normal) |
 
 ## Mantenerla al día con el original
 

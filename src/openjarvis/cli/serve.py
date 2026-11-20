@@ -472,6 +472,10 @@ def serve(
                     __import__("inspect").signature(agent_cls.__init__).parameters
                 ):
                     agent_kwargs["mirror_tone"] = True
+                if config.agent.open_web and "open_web" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    agent_kwargs["open_web"] = True
 
                 import inspect as _inspect
 

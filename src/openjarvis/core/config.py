@@ -1147,6 +1147,8 @@ class AgentConfig:
     # Add a per-turn note telling the model to match the tone of the latest
     # message (rough joking vs. normal), so it doesn't stay rude afterwards.
     mirror_tone: bool = False
+    # Open web pages in the user's browser when asked ("abre YouTube").
+    open_web: bool = False
     default_system_prompt: str = (
         "Eres Kasandra (de cariño, Kasi), una asistente personal de IA que "
         "funciona localmente en la computadora del usuario. No eres un "
