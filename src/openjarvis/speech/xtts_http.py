@@ -30,6 +30,14 @@ def _base_url() -> str:
     return os.environ.get("OPENJARVIS_XTTS_URL", _DEFAULT_URL).rstrip("/")
 
 
+def _timeout() -> float:
+    """Seconds to wait for one sentence; a busy 4 GB GPU can take minutes."""
+    try:
+        return float(os.environ.get("OPENJARVIS_XTTS_TIMEOUT", "600"))
+    except ValueError:
+        return 600.0
+
+
 def build_request(text: str, voice_id: str, speed: float, language: str) -> dict:
     """Build the server request; ``voice_id`` may carry tuning after ``;``.
 
@@ -78,7 +86,7 @@ class XTTSHttpBackend(TTSBackend):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=_timeout()) as resp:
             wav = resp.read()
         sample_rate = 24000
         duration = 0.0
