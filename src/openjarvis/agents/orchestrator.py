@@ -221,6 +221,7 @@ class OrchestratorAgent(ToolUsingAgent):
         smart_tools: bool = False,
         mirror_tone: bool = False,
         open_web: bool = False,
+        open_local: bool = False,
     ) -> None:
         super().__init__(
             engine,
@@ -244,6 +245,11 @@ class OrchestratorAgent(ToolUsingAgent):
         self._smart_tools = smart_tools
         self._mirror_tone = mirror_tone
         self._open_web = open_web
+        self._open_local = open_local
+        if open_local:
+            from openjarvis.tools.abrir_pc import warm_up
+
+            warm_up()
 
     def run(
         self,
@@ -534,29 +540,19 @@ class OrchestratorAgent(ToolUsingAgent):
     # Function-calling mode (original behaviour)
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _open_requested_page(text: str) -> Optional[str]:
-        """Open the page *text* asks for, and return a note for the model."""
-        from openjarvis.tools.abrir_web import detect_open_request, open_url
-
-        found = detect_open_request(text)
-        if not found:
+    def _pc_action(self, text: str) -> Optional[Any]:
+        """The song/page/program/file *text* asks to open, if any."""
+        if not (self._open_web or self._open_local):
             return None
-        url, label = found
+        from openjarvis.tools.abrir_pc import resolve_request
+
         try:
-            ok = open_url(url)
-        except Exception:
-            logger.warning("No se pudo abrir %s", url, exc_info=True)
-            ok = False
-        if ok:
-            return (
-                f"Ya abriste {label} ({url}) en el navegador del usuario. "
-                "Confírmaselo en una sola frase corta, sin leer la dirección."
+            return resolve_request(
+                text, web=self._open_web, local=self._open_local
             )
-        return (
-            f"Intentaste abrir {url} en el navegador pero no se pudo. "
-            "Díselo al usuario en una frase corta."
-        )
+        except Exception:
+            logger.warning("No se pudo interpretar %r", text, exc_info=True)
+            return None
 
     def _run_function_calling(
         self,
@@ -565,6 +561,20 @@ class OrchestratorAgent(ToolUsingAgent):
         **kwargs: Any,
     ) -> AgentResult:
         self._emit_turn_start(input)
+
+        action = self._pc_action(input)
+        if action is not None:
+            # "pon X", "abre Excel", "abre el archivo X": done right here in
+            # code, with a short fixed reply, so it takes seconds, not a
+            # model round-trip.
+            content = action.run()
+            self._emit_turn_end(turns=1, content_length=len(content))
+            return AgentResult(
+                content=content,
+                tool_results=[],
+                turns=1,
+                metadata={"pc_action": action.kind},
+            )
 
         # Build initial messages
         messages = self._build_messages(
@@ -593,11 +603,6 @@ class OrchestratorAgent(ToolUsingAgent):
             )
             if not _OTHER_TOOL_HINTS.search(input):
                 openai_tools = []
-        web_note = self._open_requested_page(input) if self._open_web else None
-        if web_note:
-            # The page is opened here, in code; the model only confirms it.
-            messages.append(Message(role=Role.SYSTEM, content=web_note))
-            openai_tools = []
         if openai_tools and self._smart_tools and not needs_tools(input):
             # Plain chat: skip the tool schemas (≈1k tokens) and the
             # tool round-trip so small local models answer in one call.
