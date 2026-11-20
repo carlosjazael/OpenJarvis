@@ -476,6 +476,10 @@ def serve(
                     __import__("inspect").signature(agent_cls.__init__).parameters
                 ):
                     agent_kwargs["open_web"] = True
+                if config.agent.open_local and "open_local" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    agent_kwargs["open_local"] = True
 
                 import inspect as _inspect
 

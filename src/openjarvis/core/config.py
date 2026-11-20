@@ -1149,6 +1149,8 @@ class AgentConfig:
     mirror_tone: bool = False
     # Open web pages in the user's browser when asked ("abre YouTube").
     open_web: bool = False
+    # Open programs and files on this PC when asked ("abre Excel").
+    open_local: bool = False
     default_system_prompt: str = (
         "Eres Kasandra (de cariño, Kasi), una asistente personal de IA que "
         "funciona localmente en la computadora del usuario. No eres un "

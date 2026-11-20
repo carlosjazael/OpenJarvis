@@ -100,6 +100,7 @@ Edita `~/.openjarvis/config.toml` (en Windows: `C:\Users\<tú>\.openjarvis\confi
 | Cambiarle el nombre o la personalidad | `[agent] system_prompt = """Te llamas …"""` |
 | Un modelo más listo | `[intelligence] default_model = "qwen3.5:9b"` |
 | Que abra páginas web ("abre YouTube", "pon X en YouTube", "abre sat.gob.mx") | `[agent] open_web = true` (solo direcciones http/https, en tu navegador normal) |
+| Que ponga canciones y abra favoritos, programas y archivos ("pon Hotel California", "abre Excel", "abre mi favorito del SAT", "abre el archivo presupuesto") | `[agent] open_local = true` y `open_web = true`. Carpetas extra para buscar archivos: variable `OPENJARVIS_CARPETAS` separadas por `;`. Nunca ejecuta .exe, .bat ni scripts sueltos |
 
 ## Mantenerla al día con el original
 

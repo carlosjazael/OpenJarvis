@@ -315,6 +315,10 @@ def chat(
                     __import__("inspect").signature(agent_cls.__init__).parameters
                 ):
                     kwargs["open_web"] = True
+                if config.agent.open_local and "open_local" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    kwargs["open_local"] = True
 
                 import inspect as _inspect
 

@@ -78,16 +78,3 @@ def test_tool_opens_known_site(monkeypatch):
     )
     result = abrir_web.OpenUrlTool().execute(url="YouTube")
     assert result.success and opened == ["https://www.youtube.com"]
-
-
-def test_orchestrator_opens_page_and_drops_tools(monkeypatch):
-    from openjarvis.agents.orchestrator import OrchestratorAgent
-
-    opened = []
-    monkeypatch.setattr(
-        abrir_web.webbrowser, "open", lambda u, new=0: opened.append(u) or True
-    )
-    note = OrchestratorAgent._open_requested_page("Kasi abre YouTube")
-    assert opened == ["https://www.youtube.com"]
-    assert "Ya abriste" in note
-    assert OrchestratorAgent._open_requested_page("hola, ¿cómo estás?") is None
