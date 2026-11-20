@@ -221,3 +221,7 @@ def test_long_messages_are_ignored_quickly():
     start = time.monotonic()
     assert resolve_request("abre x" + " " * 5000 + "x", FakeCatalog()) is None
     assert time.monotonic() - start < 1
+
+
+def test_svg_is_not_openable():
+    assert not abrir_pc.is_openable_file("dibujo.svg")

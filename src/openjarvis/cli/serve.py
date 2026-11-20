@@ -480,6 +480,10 @@ def serve(
                     __import__("inspect").signature(agent_cls.__init__).parameters
                 ):
                     agent_kwargs["open_local"] = True
+                if config.agent.memory_guard and "memory_guard" in (
+                    __import__("inspect").signature(agent_cls.__init__).parameters
+                ):
+                    agent_kwargs["memory_guard"] = True
 
                 import inspect as _inspect
 

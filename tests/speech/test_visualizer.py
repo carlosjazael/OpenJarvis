@@ -255,3 +255,14 @@ def test_udp_flood_cannot_freeze_the_clock():
 
     reloj.drain(Flood())
     assert Flood.calls == reloj.MAX_PACKETS_PER_POLL
+
+
+def test_clock_reads_api_key_from_config(tmp_path, monkeypatch):
+    from openjarvis.widgets import reloj
+
+    monkeypatch.delenv("OPENJARVIS_API_KEY", raising=False)
+    (tmp_path / "config.toml").write_text('[server.auth]\napi_key = "oj_sk_x"\n')
+    monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
+    assert reloj.api_key() == "oj_sk_x"
+    monkeypatch.setenv("OPENJARVIS_API_KEY", "env")
+    assert reloj.api_key() == "env"

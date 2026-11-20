@@ -97,8 +97,12 @@ def precompute_math(text: str) -> Optional[str]:
                 r"\d{1,3}(?:,\d{3})+", lambda n: n.group(0).replace(",", ""), expr
             )
             clean = (
-                clean.replace("×", "*").replace("x", "*").replace("X", "*")
-                .replace("÷", "/").replace("^", "**").replace(",", ".")
+                clean.replace("×", "*")
+                .replace("x", "*")
+                .replace("X", "*")
+                .replace("÷", "/")
+                .replace("^", "**")
+                .replace(",", ".")
             )
             try:
                 value = float(safe_eval(clean))
@@ -134,6 +138,53 @@ def tone_note(text: str) -> str:
         "amable y educada, sin groserías ni insultos ni sarcasmo, aunque antes "
         "se hayan llevado pesado."
     )
+
+
+# Tools that change what Kasandra remembers or knows how to do.
+_MEMORY_WRITERS = {
+    "memory_manage": lambda a: a.get("action", "read") != "read",
+    "user_profile_manage": lambda a: a.get("action", "read") != "read",
+    "memory_store": lambda a: True,
+    "skill_manage": lambda a: a.get("action", "list") in ("create", "delete"),
+}
+# Tools whose output is outside text (web pages, files) and may carry
+# hidden instructions.
+_UNTRUSTED_SOURCES = frozenset(
+    {"web_search", "http_request", "browser_navigate", "file_read", "pdf_extract"}
+)
+_ASKS_TO_REMEMBER = re.compile(
+    r"(recuerd|acu[eé]rdate|guarda|anota|apunta|memoriza|aprend|olvida|borra|"
+    r"elimina|ll[aá]mame|me llamo|mi nombre|prefier|no me gusta|me gusta|"
+    r"vivo en|trabajo en|soy de|mi cumplea|mi esposa|mi hij|habilidad|skill|"
+    r"remember|forget|save)",
+    re.IGNORECASE,
+)
+
+
+def memory_write_denial(
+    tool_name: str, args: dict, user_text: str, used_tools: list[str]
+) -> Optional[str]:
+    """Why a memory/skill write must be refused this turn, or None.
+
+    Memory and skills shape every future conversation, so they only change
+    when the user asked for it in this very message, and never after the
+    model read a web page or a file this turn (prompt injection).
+    """
+    writes = _MEMORY_WRITERS.get(tool_name)
+    if writes is None or not writes(args):
+        return None
+    if any(t in _UNTRUSTED_SOURCES for t in used_tools):
+        return (
+            "No se guarda nada en la memoria en una respuesta que leyó "
+            "internet o archivos. Si el usuario quiere guardarlo, que lo pida "
+            "en otro mensaje."
+        )
+    if not _ASKS_TO_REMEMBER.search(user_text or ""):
+        return (
+            "El usuario no pidió guardar nada en este mensaje; no cambies la "
+            "memoria ni las habilidades."
+        )
+    return None
 
 
 def needs_tools(text: str) -> bool:
@@ -222,6 +273,7 @@ class OrchestratorAgent(ToolUsingAgent):
         mirror_tone: bool = False,
         open_web: bool = False,
         open_local: bool = False,
+        memory_guard: bool = False,
     ) -> None:
         super().__init__(
             engine,
@@ -246,6 +298,9 @@ class OrchestratorAgent(ToolUsingAgent):
         self._mirror_tone = mirror_tone
         self._open_web = open_web
         self._open_local = open_local
+        self._memory_guard = memory_guard
+        self._turn_input = ""
+        self._turn_results: list = []
         if open_local:
             from openjarvis.tools.abrir_pc import warm_up
 
@@ -285,6 +340,20 @@ class OrchestratorAgent(ToolUsingAgent):
         decision object), invalid arguments, and hook failures deny execution
         so a governance integration cannot fail open.
         """
+        if self._memory_guard and tc.name in _MEMORY_WRITERS:
+            try:
+                guard_args = json.loads(tc.arguments) if tc.arguments else {}
+            except (json.JSONDecodeError, TypeError):
+                guard_args = {}
+            reason = memory_write_denial(
+                tc.name,
+                guard_args if isinstance(guard_args, dict) else {},
+                self._turn_input,
+                [r.tool_name for r in self._turn_results],
+            )
+            if reason:
+                return ToolResult(tool_name=tc.name, content=reason, success=False)
+
         if self._before_tool_call is None:
             return None
 
@@ -547,9 +616,7 @@ class OrchestratorAgent(ToolUsingAgent):
         from openjarvis.tools.abrir_pc import resolve_request
 
         try:
-            return resolve_request(
-                text, web=self._open_web, local=self._open_local
-            )
+            return resolve_request(text, web=self._open_web, local=self._open_local)
         except Exception:
             logger.warning("No se pudo interpretar %r", text, exc_info=True)
             return None
@@ -609,6 +676,8 @@ class OrchestratorAgent(ToolUsingAgent):
             openai_tools = []
 
         all_tool_results: list[ToolResult] = []
+        self._turn_input = input
+        self._turn_results = all_tool_results
         turns = 0
         total_prompt_tokens = 0
         total_completion_tokens = 0

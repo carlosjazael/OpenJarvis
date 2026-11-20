@@ -13,6 +13,10 @@ from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
 
 _SAFE_NAME = re.compile(r"[A-Za-z0-9_-]{1,64}")
+# A skill the assistant writes for itself may only chain harmless tools: no
+# reading files, no memory writes, no other skills.
+SKILL_STEP_TOOLS = frozenset({"calculator", "think", "web_search", "memory_search"})
+MAX_SKILL_STEPS = 8
 
 
 @ToolRegistry.register("skill_manage")
@@ -108,6 +112,22 @@ class SkillManageTool(BaseTool):
         path = self._skill_path(name)
         if path is None:
             return self._bad_name(name)
+        steps = list(steps or [])
+        bad = [
+            str(st.get("tool_name", "")) if isinstance(st, dict) else str(st)
+            for st in steps
+            if not isinstance(st, dict) or st.get("tool_name") not in SKILL_STEP_TOOLS
+        ]
+        if bad or len(steps) > MAX_SKILL_STEPS:
+            allowed = ", ".join(sorted(SKILL_STEP_TOOLS))
+            return ToolResult(
+                tool_name=self.spec.name,
+                success=False,
+                content=(
+                    f"Skills may use at most {MAX_SKILL_STEPS} steps and only "
+                    f"these tools: {allowed}. Not allowed: {', '.join(bad) or '-'}"
+                ),
+            )
         # json.dumps gives a valid, fully escaped TOML basic string, so a
         # description can't inject new TOML tables or keys.
         lines = [

@@ -7,8 +7,8 @@ only *opens* things:
 
 * songs open the first YouTube result in the default browser;
 * favorites are read (never changed) from Edge, Chrome, Brave and Firefox;
-* programs are only the ones with a shortcut in the Start menu or on the
-  Desktop, or listed by Windows as installed apps;
+* programs are only the ones with a shortcut in the Start menu, or listed
+  by Windows as installed apps;
 * files are searched by name in Desktop, Documents, Downloads (plus the
   folders in ``OPENJARVIS_CARPETAS``), and executables/scripts are never run.
 """
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 # disk images, help files...) is never opened, whatever its name.
 OPENABLE_EXTENSIONS = frozenset(
     ".pdf .txt .rtf .md .csv .doc .docx .xls .xlsx .ppt .pptx .odt .ods .odp "
-    ".jpg .jpeg .png .gif .bmp .webp .heic .tif .tiff .svg "
+    ".jpg .jpeg .png .gif .bmp .webp .heic .tif .tiff "
     ".mp3 .wav .m4a .flac .ogg .aac .wma .mp4 .mkv .avi .mov .wmv .webm "
     ".dwg .dxf .dwf .skp .rvt .kmz .kml .zip .rar .7z".split()
 )
@@ -279,15 +279,13 @@ def _firefox_bookmarks(path: Path) -> List[Tuple[str, str]]:
 
 
 def _start_menu_dirs() -> List[Tuple[Path, bool]]:
-    """``(folder, recursive)``: the Start menu, and the Desktop's top level."""
+    """``(folder, recursive)``: the Start menu folders."""
     dirs = []
     for env, sub, recursive in (
+        # Only the Start menu: anything (even a download) can land on the
+        # Desktop, so its shortcuts are not trusted as "programs".
         ("APPDATA", "Microsoft/Windows/Start Menu/Programs", True),
         ("PROGRAMDATA", "Microsoft/Windows/Start Menu/Programs", True),
-        ("USERPROFILE", "Desktop", False),
-        ("USERPROFILE", "OneDrive/Desktop", False),
-        ("USERPROFILE", "OneDrive/Escritorio", False),
-        ("PUBLIC", "Desktop", False),
     ):
         base = _env_path(env)
         if base and (base / sub).is_dir():
@@ -296,11 +294,10 @@ def _start_menu_dirs() -> List[Tuple[Path, bool]]:
 
 
 def read_programs() -> List[Program]:
-    """Shortcuts in the Start menu and Desktop, plus Windows' installed apps."""
+    """Shortcuts in the Start menu, plus Windows' installed apps."""
     programs: dict = {}
     for d, recursive in _start_menu_dirs():
-        # Only .lnk program shortcuts (no .url files: they can point anywhere),
-        # and not inside random folders unzipped on the Desktop.
+        # Only .lnk program shortcuts (no .url files: they can point anywhere).
         for pattern in ("**/*.lnk",) if recursive else ("*.lnk",):
             for f in d.glob(pattern):
                 name = f.stem
